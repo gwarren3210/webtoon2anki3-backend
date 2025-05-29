@@ -1,0 +1,7 @@
+{
+  "version": 3,
+  "sources": ["../../../../encore.gen/internal/entrypoints/combined/main.ts"],
+  "sourcesContent": ["import { registerGateways, registerHandlers, run, type Handler } from \"encore.dev/internal/codegen/appinit\";\n\n\nconst gateways: any[] = [\n];\n\nconst handlers: Handler[] = [\n];\n\nregisterGateways(gateways);\nregisterHandlers(handlers);\n\nawait run(import.meta.url);\n"],
+  "mappings": ";;;;;AAAA,SAAS,kBAAkB,kBAAkB,WAAyB;AAGtE,IAAM,WAAkB,CACxB;AAEA,IAAM,WAAsB,CAC5B;AAEA,iBAAiB,QAAQ;AACzB,iBAAiB,QAAQ;AAEzB,MAAM,IAAI,YAAY,GAAG;",
+  "names": []
+}
