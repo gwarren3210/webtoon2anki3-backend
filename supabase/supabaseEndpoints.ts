@@ -201,7 +201,6 @@ export interface ListCardsResponse {
 
 // User endpoints
 export interface SignupRequest {
-  username: string;
   email: string;
   password: string;
 }
@@ -209,7 +208,7 @@ export interface SignupResponse {
   user: unknown;
 }
 export interface LoginRequest {
-  username: string;
+  email: string;
   password: string;
 }
 export interface LoginResponse {
