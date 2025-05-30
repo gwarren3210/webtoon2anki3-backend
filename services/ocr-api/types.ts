@@ -14,13 +14,4 @@ export type BoundingBox = {
 export type OcrResult = {
   text: string;
   bbox: BoundingBox;
-  confidence: number;
 };
-
-/**
- * Tile metadata and image data.
- */
-export type Tile = {
-  image: Buffer;
-  bbox: BoundingBox;
-}; 

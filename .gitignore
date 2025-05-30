@@ -1,3 +1,4 @@
+.env
 .encore
 encore.gen.go
 encore.gen.cue
@@ -5,7 +6,6 @@ encore.gen.cue
 node_modules
 encore.gen
 
-/python/ocr/.venv
 package-lock.json
 package.json
 package.json
