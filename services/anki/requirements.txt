@@ -1,0 +1,4 @@
+# Python dependencies for the Anki builder microservice 
+Flask
+gunicorn
+genanki 
