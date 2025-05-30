@@ -23,3 +23,15 @@ export type OcrLineResult = {
   line: string;
   bbox: BoundingBox;
 };
+
+/**
+ * Information about a translated word, its original context, and optional line translation.
+ */
+export type TranslatedWordInfo = {
+  originalWord: string;
+  originalWordBbox?: BoundingBox; // TODO: refactor code to pass along or find BB
+  originalLine: string;
+  originalLineBbox: BoundingBox;
+  translatedWord: string;
+  translatedLine?: string; // Optional translation of the whole line
+};
