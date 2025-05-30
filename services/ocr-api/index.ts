@@ -1,5 +1,5 @@
 import { SmartOCRProcessor, OCRConfig } from './smartOcrProcessor';
-import { OcrResult } from './types';
+import { OcrResult } from '../types';
 import { promises as fs } from 'fs';
 import path from 'path';
 

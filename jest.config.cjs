@@ -2,5 +2,5 @@
 module.exports = {
    preset: 'ts-jest',
    testEnvironment: 'node',
-   testMatch: ["**/services/ocr-api/test/**/*.test.ts"],
+   testMatch: ["**/services/*/test/**/*.test.ts"],
  };

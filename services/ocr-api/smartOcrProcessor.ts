@@ -2,7 +2,7 @@ import sharp from 'sharp';
 import { promises as fs } from 'fs';
 import * as path from 'path';
 import { ocrSpace } from 'ocr-space-api-wrapper';
-import { OcrResult, BoundingBox } from './types'; // Import original types
+import { OcrResult, BoundingBox } from '../types'; // Import original types
 import * as os from 'os';
 import { randomUUID } from 'crypto';
 import { getImageInfo, mapOcrSpaceResultToOcrResultArray, handleError, delay } from './ocrApiUtils'; // Import utilities
@@ -143,11 +143,12 @@ export class SmartOCRProcessor {
             let processedTiles = 0;
 
             // Process each tile
-            for (let i = 0; i < tiles.length; i++) {
-                console.log(`Processing tile ${i + 1}/${tiles.length}...`);
+            for (const { tile, startY } of tiles) { // Destructure to get tile and startY
+                console.log(`Processing tile starting at y=${startY}...`);
 
                 try {
-                    const tileBuffer = await tiles[i].jpeg({ quality: 85 }).toBuffer();
+                    const tileBuffer = await tile.toBuffer();
+                    //const tileBuffer = await tiles[i].jpeg({ quality: 85 }).toBuffer();
 
                     // TODO: Process individual tiles. ocrSpace needs a file path or base64.
                     // Saving each tile to a temp file or converting to base64 would work, but adds overhead.
@@ -173,14 +174,14 @@ export class SmartOCRProcessor {
                          processedTiles++;
 
                     } else {
-                        console.warn(`Tile ${i + 1} OCR failed: ${ocrResult.ErrorMessage}`);
+                        console.warn(`Tile starting at y=${startY} OCR failed: ${ocrResult.ErrorMessage}`);
                     }
 
                     // Add small delay to avoid rate limiting
                     await delay(500); // Use imported utility
 
                 } catch (tileError) {
-                    console.warn(`Error processing tile ${i + 1}:`, tileError);
+                    console.warn(`Error processing tile starting at y=${startY}:`, tileError);
                 }
             }
 
@@ -203,7 +204,7 @@ export class SmartOCRProcessor {
      * Create adaptive tiles based on file size and image dimensions.
      * Accepts either a file path or buffer as input.
      */
-    private async createAdaptiveTiles(input: Buffer | string): Promise<sharp.Sharp[]> {
+    private async createAdaptiveTiles(input: Buffer | string): Promise<{ tile: sharp.Sharp, startY: number }[]> {
       
         const image = sharp(input);
         const metadata = await image.metadata();
@@ -223,7 +224,7 @@ export class SmartOCRProcessor {
 
         console.log(`Using adaptive tiling: base divisions=${baseDivisions}, adjusted divisions=${adjustedDivisions}, tile height=${tileHeight}`);
 
-        const tiles: sharp.Sharp[] = [];
+        const tiles: { tile: sharp.Sharp, startY: number }[] = [];
         let startY = 0;
 
         while (startY < imgHeight) {
@@ -237,7 +238,7 @@ export class SmartOCRProcessor {
                 height: actualTileHeight
             });
 
-            tiles.push(tile); // Store sharp instance for later processing
+            tiles.push({ tile, startY }); // Store sharp instance and startY offset
 
             // Move startY for the next tile, accounting for overlap
             const overlapHeight = Math.floor(this.config.overlapPercentage * tileHeight);
