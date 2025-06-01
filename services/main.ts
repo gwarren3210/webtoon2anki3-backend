@@ -16,6 +16,7 @@ import { processImageForOCR } from './ocr-api';
 import { processAndGroupOcrResults } from './text-grouper'; // Assuming this is the correct function
 import { PapagoTranslateEngine } from './translation/papagoTranslateEngine';
 import { handleAnkiPackageCreation } from './anki/ankiPackageHandler';
+// import * as storage from './storage';
 // Consider importing validation logic if available
 // import { validateImageData } from './validation';
 
@@ -75,3 +76,12 @@ export async function processWebtoonImage(
 
 // You might want to add an example usage function here if needed,
 // but the primary export is processWebtoonImage.
+
+// TODO implement buffer handling
+export async function handleProcessWebtoonImage(
+  imageBuffer: Buffer,
+  ocrApiKey: string,
+  sourceLang: string = 'ko', // Default to Korean
+  targetLang: string = 'en' // Default to English
+)  {
+}
