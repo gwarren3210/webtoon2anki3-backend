@@ -24,7 +24,7 @@ export async function saveTempFile(filename: string, buffer: Buffer): Promise<st
   try {
     await ensureTempDir();
     const filePath = path.join(TEMP_DIR, filename);
-    await fs.writeFile(filePath, buffer);
+    await fs.writeFile(filePath, new Uint8Array(buffer));
     return filePath;
   } catch (err) {
     throw new Error('Failed to save temp file: ' + (err as Error).message);

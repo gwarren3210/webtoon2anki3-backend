@@ -1,5 +1,5 @@
 // @ts-ignore
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
 import fs from 'fs/promises';
 import path from 'path';
 import { saveTempFile, readTempFile, deleteTempFile, ensureTempDir } from './tempStorageService';
@@ -25,7 +25,7 @@ describe('tempStorageService', () => {
   it('saves and reads a file', async () => {
     await saveTempFile(TEST_FILE, TEST_CONTENT);
     const data = await readTempFile(TEST_FILE);
-    expect(data.equals(TEST_CONTENT)).toBe(true);
+    expect(data.equals(new Uint8Array(TEST_CONTENT))).toBe(true);
   });
 
   it('deletes a file', async () => {

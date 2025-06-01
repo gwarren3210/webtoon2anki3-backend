@@ -43,9 +43,11 @@ export class SmartOCRProcessor {
     }
 
     /**
+     * TODO: tiling is not implemented yet.
      * Process image with OCR, automatically tiling if file is too large.
      * Returns an array of OcrResult objects on success, throws error on failure.
      */
+    
     async processImage(input: string | Buffer): Promise<OcrResult[]> {
         const tempDir = os.tmpdir();
         const uniqueId = randomUUID();
@@ -77,8 +79,21 @@ export class SmartOCRProcessor {
                  // which will need further refinement to handle tiling based on the file.
                 return await this.processWithTiling(tempImagePath);
             }
-
-        } catch (error) {
+        } catch (error: any) {
+            // Check if the error is a timeout error and switch engines
+            /* if (error.message && error.message.includes('E101: Timed out waiting for results') && this.config.ocrEngine === 2) {
+                console.warn('OCR timed out with engine 2, retrying with engine 1...');
+                // Temporarily switch to engine 1
+                const originalEngine = this.config.ocrEngine;
+                this.config.ocrEngine = 1;
+                try {
+                    // Retry with engine 1
+                    return await this.processDirectly(input);
+                } finally {
+                    // Restore original engine setting
+                    this.config.ocrEngine = originalEngine;
+                }
+            } */
             handleError(error); // Use imported utility
             throw error; // Re-throw after handling
         } finally {
@@ -89,8 +104,8 @@ export class SmartOCRProcessor {
                      await fs.unlink(tempImagePath);
                      console.log(`Cleaned up temporary image file ${tempImagePath}`);
                  } catch (cleanupError) {
-                     console.error(`Failed to clean up temporary image file ${tempImagePath}:`, cleanupError);
-                 }
+                     console.warn(`Failed to clean up temporary image file ${tempImagePath}:`, cleanupError);
+                 } 
              }
         }
     }
@@ -104,17 +119,18 @@ export class SmartOCRProcessor {
         console.log('Processing image directly (no tiling required)');
 
         try {
+            console.log("Sending OCR request...")
             const ocrResult = await ocrSpace(input, {
-                apiKey: this.config.apiKey,
+                apiKey: /* this.config.apiKey || */ 'helloworld', // default api key limit 10 reqs check official site
                 language: this.config.language as any, // Cast to any to resolve linter error - TODO: use OcrSpaceLanguages type if accessible
                 OCREngine: this.config.ocrEngine === 1 ? "1" : "2",
                 scale: this.config.scale,
                 isTable: false,
                 isOverlayRequired: true, // Request overlay to get bounding boxes
             });
-
+            console.log("received OCR result")
             if (ocrResult.OCRExitCode === 1) {
-               console.log('OCR result:', ocrResult);
+                console.log('OCR result:', ocrResult);
                 return mapOcrSpaceResultToOcrResultArray(ocrResult); // Use imported utility
             } else {
                 throw new Error(`OCR failed: ${ocrResult.ErrorMessage || 'Unknown error'}`);
@@ -126,6 +142,7 @@ export class SmartOCRProcessor {
     }
 
     /**
+     * TODO
      * Process image with adaptive tiling.
      * Expects a file path as input.
      * Returns an array of OcrResult objects on success, throws error on failure.

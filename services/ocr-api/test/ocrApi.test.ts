@@ -24,8 +24,8 @@ describe('OCR API Integration Test', () => {
       const ocrResults = await processImageForOCR(testImagePath, apiKey);
 
       // Define the path for the output file
-      const outputPath = path.resolve(__dirname, 'ocrOutputSample.json');
-
+      const outputPath = path.resolve(__dirname, '../../test-data/ocrOutputSample.json');
+      
       // Write the OCR results to the file
       //fs.writeFileSync(outputPath, JSON.stringify(ocrResults, null, 2));
       //console.log(`OCR results saved to ${outputPath}`);
@@ -35,11 +35,17 @@ describe('OCR API Integration Test', () => {
       console.log('\n-------------------\n');
 
       // Basic assertion to check if results were returned
-      expect(ocrResults.length).toBeGreaterThan(0);
+      expect(ocrResults.length).toBeGreaterThan(0)
+
+    // Read the expected output file
+    const expectedOutput = JSON.parse(fs.readFileSync(outputPath, 'utf8'));
+    
+    // Compare the actual results with expected output
+    expect(ocrResults).toEqual(expectedOutput);
 
     } catch (error) {
       console.error('Error during OCR API integration test:', error);
       throw error; // Re-throw the error to fail the test
     }
-  }, 30000); // Increase timeout for API call
+  }, 2 * 60 * 1000); // Increase timeout for API call
 }); 

@@ -1,6 +1,7 @@
 # Main file for the Anki builder microservice
 # Implements a Flask endpoint to generate Anki packages.
 # Endpoint in GCR http://anki-builder-530177289872.us-central1.run.app/build-package
+# TODO: setup this folder as a subrepo spo its easier to to CI/CD or another method
 
 import json
 import random

@@ -1,15 +1,6 @@
 import { OcrResult, BoundingBox, OcrLineResult } from '../types';
 
 /**
- * Sorts OcrResult items by y-coordinate.
- * @param ocrData - Array of OcrResult objects.
- * @returns Sorted array of OcrResult objects.
- */
-function sortByVerticalPosition(ocrData: OcrResult[]): OcrResult[] {
-    return [...ocrData].sort((a, b) => a.bbox.y - b.bbox.y);
-}
-
-/**
  * Groups OcrResult items into potential speech bubbles based on vertical proximity.
  * @param ocrData - Array of OcrResult objects.
  * @param verticalThreshold - Maximum vertical distance between text elements to be considered in the same group (default: 100).
@@ -52,6 +43,16 @@ export function groupTextByProximity(
     }
 
     return groups;
+}
+
+
+/**
+ * Sorts OcrResult items by y-coordinate.
+ * @param ocrData - Array of OcrResult objects.
+ * @returns Sorted array of OcrResult objects.
+ */
+function sortByVerticalPosition(ocrData: OcrResult[]): OcrResult[] {
+    return [...ocrData].sort((a, b) => a.bbox.y - b.bbox.y);
 }
 
 /**

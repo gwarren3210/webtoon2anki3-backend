@@ -1,6 +1,6 @@
-import sharp from 'sharp';
+// import sharp from 'sharp';
 import { promises as fs } from 'fs';
-import path from 'path';
+// import path from 'path';
 import { OcrResult, BoundingBox } from '../types'; // Import original types
 
 /**
