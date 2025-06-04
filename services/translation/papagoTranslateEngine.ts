@@ -23,7 +23,7 @@ export class PapagoTranslateEngine implements ITranslationEngine {
   ) {
     this.sourceLang = sourceLang;
     this.targetLang = targetLang;
-    this.papagoInstance = new PapagoTranslate(papagoOptions);
+    this.papagoInstance = new PapagoTranslate.Papago(papagoOptions);
     this.translationCache = new Map();
   }
 

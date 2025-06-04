@@ -18,7 +18,7 @@ describe("PapagoTranslateEngine Integration Tests", () => {
     const expectedEnglish = "cat"; // Papago might return slightly different casing/phrasing
 
     const translatedWord = await papagoTranslateEngine.translateWord(koreanWord);
-
+    console.log("Translation: ", translatedWord)
     // Use toContain or a similar flexible matcher if exact match is too brittle
     expect(translatedWord.toLowerCase()).toContain(expectedEnglish);
   });
@@ -27,8 +27,9 @@ describe("PapagoTranslateEngine Integration Tests", () => {
     const koreanWord = "안녕하세요"; // Hello
     const expectedEnglish = "hello";
 
-    const translatedWord = await papagoTranslateEngine.translateWord(koreanWord);
-
+    const translatedWord = (await papagoTranslateEngine.translateWord(koreanWord)).toLowerCase();
+    console.log("Translation: ", translatedWord)
+    
     expect(translatedWord.toLowerCase()).toContain(expectedEnglish);
   });
 
@@ -37,7 +38,8 @@ describe("PapagoTranslateEngine Integration Tests", () => {
     const expectedEnglish = "i am a student.";
 
     const translatedLine = await papagoTranslateEngine.translateLine(koreanLine);
-
+    console.log("Translated line: ", translatedLine)
+    
     expect(translatedLine.toLowerCase()).toContain(expectedEnglish);
   });
 

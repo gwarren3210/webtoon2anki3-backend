@@ -11,7 +11,12 @@ import { processWebtoonImage } from './main';
 
 // Define your raw endpoint
 export const processImageEndpoint = api.raw(
-  { expose: true, method: "POST", path: "/process-image", bodyLimit: null }, // Set bodyLimit to null for potentially large files
+  { 
+   expose: true, 
+   method: "POST",
+   path: "/process-image",
+   bodyLimit: null
+  }, // Set bodyLimit to null for potentially large files
   async (req: IncomingMessage, res: ServerResponse) => {
     let imageData: Buffer | null = null;
     let tempImagePath: string | null = null;
