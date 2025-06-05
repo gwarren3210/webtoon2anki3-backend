@@ -42,9 +42,9 @@ export const ocrEndpoint = api.raw(
         const tempImagePath = path.join(os.tmpdir(), tempFileName);
         await fs.writeFile(tempImagePath, imageData);
 
-        const ocrApiKey = process.env.OCR_API_KEY;
+        const ocrApiKey = process.env.OCR_API_KEY || 'helloworld';
         if (!ocrApiKey) {
-          throw new Error("OCR_API_KEY not configured");
+          console.warn("OCR_API_KEY not configured");
         }
 
         const ocrResults = await processImageForOCR(tempImagePath, ocrApiKey);
