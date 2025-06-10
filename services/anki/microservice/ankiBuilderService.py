@@ -1,7 +1,6 @@
 # Main file for the Anki builder microservice
 # Implements a Flask endpoint to generate Anki packages.
 # Endpoint in GCR http://anki-builder-530177289872.us-central1.run.app/build-package
-# TODO: setup this folder as a subrepo spo its easier to to CI/CD or another method
 
 import json
 import random
@@ -12,36 +11,84 @@ from flask import Flask, request, Response, jsonify
 # Using a random number to avoid conflicts
 ANKI_MODEL_ID = random.randrange(1 << 30, 1 << 31)
 
-# Define the Anki Model (card type)
-ANKI_MODEL = genanki.Model(
-  ANKI_MODEL_ID,
-  'Simple Webtoon Card',
-  fields=[
+def create_anki_model(config):
+  """
+  Creates an Anki model with templates based on the provided configuration.
+
+  Args:
+    config (dict): Configuration for card generation containing:
+      - front_fields (list): Fields to show on front of card
+      - back_fields (list): Fields to show on back of card
+      - create_duplicate (bool): Whether to create a duplicate card with swapped front/back
+
+  Returns:
+    genanki.Model: The configured Anki model
+  """
+  # Define the fields
+  fields = [
     {'name': 'Original Line'},
     {'name': 'Translated Line'},
     {'name': 'Original Word'},
     {'name': 'Translated Word'},
-  ],
-  templates=[
-    {
-      'name': 'Card 1',
-      'qfmt': '{{Original Line}}<br><br>{{Original Word}}',
-      'afmt': '{{FrontSide}}<hr id="answer">{{Translated Line}}<br><br>{{Translated Word}}',
-    },
-  ])
+  ]
 
-def build_anki_package(translated_word_infos):
+  # Create templates based on configuration
+  templates = []
+  
+  # Create front template
+  front_template = {
+    'name': 'Card 1',
+    'qfmt': '<br><br>'.join(f'{{{{{field}}}}}' for field in config['front_fields']),
+    'afmt': '{{FrontSide}}<hr id="answer">' + '<br><br>'.join(f'{{{{{field}}}}}' for field in config['back_fields'])
+  }
+  templates.append(front_template)
+
+  # Create reversed template if requested
+  if config['create_duplicate']:
+    back_template = {
+      'name': 'Card 2',
+      'qfmt': '<br><br>'.join(f'{{{{{field}}}}}' for field in config['back_fields']),
+      'afmt': '{{FrontSide}}<hr id="answer">' + '<br><br>'.join(f'{{{{{field}}}}}' for field in config['front_fields'])
+    }
+    templates.append(back_template)
+
+  return genanki.Model(
+    ANKI_MODEL_ID,
+    'Simple Webtoon Card',
+    fields=fields,
+    templates=templates
+  )
+
+def build_anki_package(translated_word_infos, config=None):
   """
   Builds an Anki package (.apkg) from a list of translated word information.
 
   Args:
     translated_word_infos (list): A list of dictionaries, each representing TranslatedWordInfo.
+    config (dict, optional): Configuration for card generation. Can include:
+      - front_fields (list): Fields to show on front of card
+      - back_fields (list): Fields to show on back of card
+      - create_duplicate (bool): Whether to create a duplicate card with swapped front/back
 
   Returns:
     bytes: The byte content of the generated .apkg file.
   """
+  # Default configuration
+  default_config = {
+    'front_fields': ['Original Line', 'Original Word'],
+    'back_fields': ['Translated Line', 'Translated Word'],
+    'create_duplicate': False
+  }
+  
+  # Merge provided config with defaults
+  if config:
+    default_config.update(config)
+  config = default_config
+
+  # Create the model with the current configuration
+  anki_model = create_anki_model(config)
+
   # Define a unique deck ID for genanki
-  # Using a random number to avoid conflicts
   anki_deck_id = random.randrange(1 << 30, 1 << 31)
   my_deck = genanki.Deck(
     anki_deck_id,
@@ -49,8 +96,9 @@ def build_anki_package(translated_word_infos):
   )
 
   for info in translated_word_infos:
+    # Create the note with all fields
     my_note = genanki.Note(
-      model=ANKI_MODEL,
+      model=anki_model,
       fields=[
         info.get('originalLine', ''),
         info.get('translatedLine', ''),
@@ -60,9 +108,7 @@ def build_anki_package(translated_word_infos):
     my_deck.add_note(my_note)
 
   # Create a GenPackage and write to a temporary file to get bytes
-  # This is a workaround to get the file content as bytes directly
   output_filename = f"webtoon_anki_{anki_deck_id}.apkg"
-  # Using a dummy file path for GenPackage, as we'll read the bytes
   my_deck.write_to_file(output_filename)
 
   with open(output_filename, 'rb') as f:
@@ -80,19 +126,23 @@ app = Flask(__name__)
 def build_package():
   """
   Flask endpoint to receive translated word information and return an Anki package.
-  Input: JSON body containing a list of TranslatedWordInfo objects.
+  Input: JSON body containing:
+    - translated_word_infos: list of TranslatedWordInfo objects
+    - config (optional): Configuration for card generation
   Output: .apkg file as a response.
   """
   if not request.is_json:
     return jsonify({"error": "Request body must be JSON"}), 415
 
-  translated_word_infos = request.get_json()
+  data = request.get_json()
+  translated_word_infos = data.get('translated_word_infos', [])
+  config = data.get('config', {})
 
   if not isinstance(translated_word_infos, list):
-      return jsonify({"error": "JSON body must be a list of TranslatedWordInfo"}), 400
+      return jsonify({"error": "translated_word_infos must be a list of TranslatedWordInfo"}), 400
 
   try:
-      apkg_bytes = build_anki_package(translated_word_infos)
+      apkg_bytes = build_anki_package(translated_word_infos, config)
       response = Response(apkg_bytes, mimetype='application/octet-stream')
       response.headers.set('Content-Disposition', 'attachment', filename='webtoon_anki_package.apkg')
       return response
