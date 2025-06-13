@@ -1,8 +1,11 @@
 import { processImageForOCR } from '../index';
 import * as dotenv from 'dotenv';
-import { describe, it, expect } from '@jest/globals'; // Explicitly import test functions
+import { describe, it, expect, beforeEach } from '@jest/globals'; // Add beforeEach to imports
 import * as path from 'path'; // Import path module
-import * as fs from 'fs'; // Import file system module
+import { promises as fs } from 'fs'; // Import file system module
+import { SmartOCRProcessor } from '../smartOcrProcessor'; // Fix import path
+import { OcrResult } from '../../types';
+import sharp from 'sharp'; // Fix sharp import
 
 dotenv.config(); // Load environment variables
 
@@ -38,7 +41,7 @@ describe('OCR API Integration Test', () => {
       expect(ocrResults.length).toBeGreaterThan(0)
 
     // Read the expected output file
-    const expectedOutput = JSON.parse(fs.readFileSync(outputPath, 'utf8'));
+    const expectedOutput = JSON.parse(await fs.readFile(outputPath, 'utf8'));
     
     // Compare the actual results with expected output
     expect(ocrResults).toEqual(expectedOutput);
@@ -48,4 +51,112 @@ describe('OCR API Integration Test', () => {
       throw error; // Re-throw the error to fail the test
     }
   }, 2 * 60 * 1000); // Increase timeout for API call
-}); 
+});
+
+describe('SmartOCRProcessor Tiling Tests', () => {
+    let processor: SmartOCRProcessor;
+
+    beforeEach(() => {
+        processor = new SmartOCRProcessor({
+            apiKey: process.env.OCR_API_KEY as string,
+            fileSizeThreshold: 1024 * 1024, // 1MB
+            overlapPercentage: 0.1, // 10% overlap
+            language: 'kor',
+            ocrEngine: 2,
+            scale: true
+        });
+    });
+
+    describe('createAdaptiveTiles', () => {
+        it('should create tiles with correct dimensions and overlap', async () => {
+            // Use the large-sample.jpg image for this test (1.8MB, should split into 2 tiles)
+            const testImagePath = path.resolve(__dirname, '../../test-data', 'large-sample.jpg');
+            const testImageBuffer = await fs.readFile(testImagePath);
+            const tiles = await processor['createAdaptiveTiles'](testImageBuffer);
+            
+            // Expect exactly 2 tiles for this image
+            expect(tiles.length).toBe(2);
+            
+            // Check that tiles have overlap
+            const firstTile = tiles[0];
+            const secondTile = tiles[1];
+
+            // Ensure the second tile starts before the first tile ends (indicating overlap)
+            const firstTileHeight = (await firstTile.tile.metadata()).height!;
+            expect(secondTile.startY).toBeLessThan(firstTile.startY + firstTileHeight);
+
+            // Ensure the second tile covers the remaining height
+            const imageMetadata = await sharp(testImageBuffer).metadata();
+            const imgHeight = imageMetadata.height!;
+            const secondTileHeight = (await secondTile.tile.metadata()).height!;
+            expect(secondTile.startY + secondTileHeight).toBeGreaterThanOrEqual(imgHeight);
+
+            // Verify that each tile's size is less than the fileSizeThreshold
+            for (const tile of tiles) {
+                const tileBuffer = await tile.tile.toBuffer();
+                expect(tileBuffer.length).toBeLessThan(processor['config'].fileSizeThreshold);
+            }
+            
+        }, 60 * 1000); // Keep timeout at 60 seconds
+
+        it('should handle small images without tiling', async () => {
+            // Create a small test image using sharp
+            const testImage = sharp({
+                create: {
+                    width: 100,
+                    height: 100,
+                    channels: 3,
+                    background: { r: 255, g: 255, b: 255 }
+                }
+            });
+            const testImageBuffer = await testImage.jpeg().toBuffer();
+            
+            const tiles = await processor['createAdaptiveTiles'](testImageBuffer);
+            
+            // Should create only one tile for a small image
+            expect(tiles.length).toBe(1);
+            expect(tiles[0].startY).toBe(0);
+        });
+    });
+});
+
+describe('SmartOCRProcessor Large Image OCR Test', () => {
+        let processor: SmartOCRProcessor;
+
+        beforeEach(() => {
+            processor = new SmartOCRProcessor({
+                apiKey: process.env.OCR_API_KEY as string,
+                fileSizeThreshold: 1024 * 1024, // 1MB
+                overlapPercentage: 0.1, // 10% overlap
+                language: 'kor',
+                ocrEngine: 2,
+                scale: true
+            });
+        });
+        it('should process the large image with OCR and match saved results', async () => {
+            const testImagePath = path.resolve(__dirname, '../../test-data', 'alternate-large-image.jpg');
+            const expectedOutputPath = path.resolve(__dirname, '../../test-data', 'largeAltImageOcrOutput.json');
+
+            console.log(`\nProcessing large image: ${testImagePath} for OCR...`);
+            const ocrResults = await processor.processImage(testImagePath);
+
+            expect(ocrResults.length).toBeGreaterThan(0);
+            console.log(`OCR results obtained: ${ocrResults.length} entries.`);
+
+            // Read the expected results
+            const expectedResults = JSON.parse(await fs.readFile(expectedOutputPath, 'utf-8'));
+
+            // Compare the results
+            expect(ocrResults).toEqual(expectedResults);
+
+            // Verify no duplicate positions
+            const positionMap = new Map<string, OcrResult>();
+            for (const result of ocrResults) {
+                const key = `${result.bbox.x},${result.bbox.y}`;
+                expect(positionMap.has(key)).toBe(false);
+                positionMap.set(key, result);
+            }
+        }, 2 * 60 * 1000); // Increased timeout for potentially long OCR process
+
+});
+
