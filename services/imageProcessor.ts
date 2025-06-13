@@ -18,8 +18,9 @@ export const processImageEndpoint = api.raw(
    bodyLimit: null
   }, // Set bodyLimit to null for potentially large files
   async (req: IncomingMessage, res: ServerResponse) => {
+    let tempImagePath: string;
+    let file: { mimetype: string };
     let imageData: Buffer | null = null;
-    let tempImagePath: string | null = null;
 
     // Parse query parameters
     const requestUrl = new URL(req.url || '/', `http://${req.headers.host}`);
@@ -31,20 +32,70 @@ export const processImageEndpoint = api.raw(
       limits: { files: 1 }, // Assuming only one image file is uploaded
     });
 
-    bb.on("file", (_, file, info) => {
-      const chunks: Buffer[] = [];
-      file
-        .on("data", (data) => {
-          chunks.push(data);
-        })
-        .on("close", () => {
-          imageData = Buffer.concat(chunks as unknown as Uint8Array[]);
-          // Optionally, you can derive a more specific filename here based on info.filename
-          // This is for the temporary input file name if needed, not the output .apkg name
-        })
-        .on("error", (err) => {
-          bb.emit("error", err);
-        });
+    bb.on("file", (fieldname: string, stream: any, info: any) => {
+      file = info;
+      const chunks: Uint8Array[] = [];
+      stream.on("data", (chunk: Uint8Array) => chunks.push(chunk));
+      stream.on("end", async () => {
+        try {
+          imageData = Buffer.concat(chunks);
+          // Save the image data to a temporary file
+          const tempFileName = `uploaded-image-${crypto.randomBytes(16).toString('hex')}${getFileExtension(file.mimetype)}`; // Get extension based on MIME type
+          tempImagePath = path.join(os.tmpdir(), tempFileName);
+          await fs.writeFile(tempImagePath, new Uint8Array(imageData));
+          console.log(`Saved temporary image to ${tempImagePath}`);
+
+          // *****************************************************
+          // CALL THE processWebtoonImage FUNCTION
+          // *****************************************************
+          const ocrApiKey = process.env.OCR_API_KEY as string; // Get API key from environment variables
+          if (!ocrApiKey) {
+               console.warn("OCR_API_KEY environment variable not set.");
+          }
+
+          console.log(`Calling processWebtoonImage with temporary file: ${tempImagePath}, sourceLang: ${sourceLang}, targetLang: ${targetLang}`);
+          const ankiPackageBuffer: ArrayBuffer = await processWebtoonImage(
+            tempImagePath,
+            ocrApiKey,
+            sourceLang,
+            targetLang
+          );
+          console.log('processWebtoonImage finished.');
+          // *****************************************************
+          // END OF CALL
+          // *****************************************************
+
+          // Set headers for file download
+          const outputFilename = 'output.apkg'; // You might want to make this dynamic
+          res.writeHead(200, {
+            "Content-Type": "application/octet-stream", // MIME type for .apkg files
+            "Content-Disposition": `attachment; filename="${outputFilename}"`,
+            "Content-Length": Buffer.from(ankiPackageBuffer).length,
+          });
+
+          // Send the .apkg file content in the response
+          res.end(Buffer.from(ankiPackageBuffer));
+
+        } catch (processingErr) {
+          console.error("Error during image processing pipeline:", processingErr);
+          res.writeHead(500);
+          res.end(`Error processing image: ${(processingErr as Error).message}`);
+        } finally {
+          // Clean up the temporary image file
+          if (tempImagePath) {
+            try {
+              await fs.unlink(tempImagePath);
+              console.log(`Deleted temporary image file: ${tempImagePath}`);
+            } catch (cleanupErr) {
+              console.error(`Error deleting temporary image file ${tempImagePath}:`, cleanupErr);
+              // Continue despite cleanup error
+            }
+          }
+        }
+      });
+      stream.on("error", (err: Error) => {
+        bb.emit("error", err);
+      });
     });
 
     bb.on("close", async () => {
@@ -52,61 +103,6 @@ export const processImageEndpoint = api.raw(
         res.writeHead(400);
         res.end("No image file uploaded.");
         return;
-      }
-
-      try {
-        // Save the image data to a temporary file
-        const tempFileName = `uploaded-image-${crypto.randomBytes(16).toString('hex')}.jpg`; // Assuming JPG, adjust as needed
-        tempImagePath = path.join(os.tmpdir(), tempFileName);
-        await fs.writeFile(tempImagePath, imageData as unknown as Uint8Array);
-        console.log(`Saved temporary image to ${tempImagePath}`);
-
-        // *****************************************************
-        // CALL THE processWebtoonImage FUNCTION
-        // *****************************************************
-        const ocrApiKey = process.env.OCR_API_KEY as string; // Get API key from environment variables
-        if (!ocrApiKey) {
-             console.warn("OCR_API_KEY environment variable not set.");
-        }
-
-        console.log(`Calling processWebtoonImage with temporary file: ${tempImagePath}, sourceLang: ${sourceLang}, targetLang: ${targetLang}`);
-        const ankiPackageBuffer: ArrayBuffer = await processWebtoonImage(
-          tempImagePath,
-          ocrApiKey,
-          sourceLang,
-          targetLang
-        );
-        console.log('processWebtoonImage finished.');
-        // *****************************************************
-        // END OF CALL
-        // *****************************************************
-
-        // Set headers for file download
-        const outputFilename = 'output.apkg'; // You might want to make this dynamic
-        res.writeHead(200, {
-          "Content-Type": "application/octet-stream", // MIME type for .apkg files
-          "Content-Disposition": `attachment; filename="${outputFilename}"`,
-          "Content-Length": Buffer.from(ankiPackageBuffer).length,
-        });
-
-        // Send the .apkg file content in the response
-        res.end(Buffer.from(ankiPackageBuffer));
-
-      } catch (processingErr) {
-        console.error("Error during image processing pipeline:", processingErr);
-        res.writeHead(500);
-        res.end(`Error processing image: ${(processingErr as Error).message}`);
-      } finally {
-        // Clean up the temporary image file
-        if (tempImagePath) {
-          try {
-            await fs.unlink(tempImagePath);
-            console.log(`Deleted temporary image file: ${tempImagePath}`);
-          } catch (cleanupErr) {
-            console.error(`Error deleting temporary image file ${tempImagePath}:`, cleanupErr);
-            // Continue despite cleanup error
-          }
-        }
       }
     });
 
@@ -119,3 +115,14 @@ export const processImageEndpoint = api.raw(
     req.pipe(bb);
   }
 );
+
+// Helper function to get file extension from MIME type
+function getFileExtension(mimetype: string): string {
+  const mimeToExt: { [key: string]: string } = {
+    'image/jpeg': '.jpg',
+    'image/jpg': '.jpg',
+    'image/png': '.png',
+    'image/webp': '.webp'
+  };
+  return mimeToExt[mimetype] || '.jpg'; // Default to .jpg if unknown
+}

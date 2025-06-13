@@ -63,7 +63,7 @@ export class SmartOCRProcessor {
     async processImage(input: string | Buffer): Promise<OcrResult[]> {
         const tempDir = os.tmpdir();
         const uniqueId = randomUUID();
-        const tempImagePath = path.join(tempDir, `upload_${uniqueId}.jpg`);
+        const tempImagePath = path.join(tempDir, `upload_${uniqueId}${getFileExtension(input)}`);
 
         try {
             console.log('Starting smart OCR processing...');
@@ -176,7 +176,7 @@ export class SmartOCRProcessor {
             for (const { tile, startY } of tiles) { // Destructure to get tile and startY
                 console.log(`Processing tile starting at y=${startY}...`);
 
-                const tileTempImagePath = path.join(tempDir, `tile_${uniqueId}_${startY}.jpg`);
+                const tileTempImagePath = path.join(tempDir, `tile_${uniqueId}_${startY}${getFileExtension(filePath)}`);
                 try {
                     await tile.jpeg({ quality: 85 }).toFile(tileTempImagePath);
 
@@ -327,4 +327,25 @@ export class SmartOCRProcessor {
             bbox: entry.bbox
         }));
     }
+}
+
+// Helper function to get file extension from MIME type or file path
+function getFileExtension(input: string | Buffer): string {
+  if (typeof input === 'string') {
+    // If it's a MIME type
+    if (input.startsWith('image/')) {
+      const mimeToExt: { [key: string]: string } = {
+        'image/jpeg': '.jpg',
+        'image/jpg': '.jpg',
+        'image/png': '.png',
+        'image/webp': '.webp'
+      };
+      return mimeToExt[input] || '.jpg';
+    }
+    // If it's a file path, get extension from path
+    const ext = path.extname(input).toLowerCase();
+    return ext || '.jpg';
+  }
+  // Default to .jpg for Buffer input
+  return '.jpg';
 } 
