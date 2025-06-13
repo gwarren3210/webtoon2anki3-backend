@@ -1,22 +1,28 @@
 # Dockerfile for the Anki builder microservice 
 
-# Use a slim Python image
+# Use Python 3.9 slim image as base
 FROM python:3.9-slim
 
-# Set the working directory in the container
+# Set working directory
 WORKDIR /app
 
-# Copy the requirements file into the working directory
-COPY requirements.txt ankiBuilderService.py
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install the Python dependencies
+# Copy requirements first to leverage Docker cache
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the application code into the working directory
-COPY . .
+# Copy the application code
+COPY ankiBuilderService.py .
+
+# Install gunicorn for production
+RUN pip install gunicorn
 
 # Expose the port the app runs on
 EXPOSE 8080
 
-# Command to run the application using Gunicorn
+# Command to run the application
 CMD ["gunicorn", "--bind", "0.0.0.0:8080", "ankiBuilderService:app"] 
