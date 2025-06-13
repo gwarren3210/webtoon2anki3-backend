@@ -1,0 +1,8 @@
+# Ignore everything
+*
+
+# But not these files
+!Dockerfile
+!requirements.txt
+!ankiBuilderService.py
+!cloudbuild.yaml 

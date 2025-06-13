@@ -9,8 +9,15 @@ export const createAnkiPackageEndpoint = api.raw(
     req.on('data', chunk => body += chunk);
     req.on('end', async () => {
       try {
-        const translatedWordInfos = JSON.parse(body);
-        const ankiPackageBuffer = await handleAnkiPackageCreation(translatedWordInfos);
+        const data = JSON.parse(body);
+        const translatedWordInfos =  data.translated_word_infos;
+        const config = data.config;
+
+        if (!translatedWordInfos || !Array.isArray(translatedWordInfos)) {
+          throw new Error('Invalid request format: translated_word_infos must be an array');
+        }
+
+        const ankiPackageBuffer = await handleAnkiPackageCreation(translatedWordInfos, config);
         
         res.writeHead(200, {
           "Content-Type": "application/octet-stream",

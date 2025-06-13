@@ -7,14 +7,24 @@ import { TranslatedWordInfo } from '../types';
 // For local testing, you can use http://localhost:8080
 const ANKI_BUILDER_SERVICE_URL = 'https://anki-builder-530177289872.us-central1.run.app';
 
+interface AnkiConfig {
+  front_fields: string[];
+  back_fields: string[];
+  create_duplicate: boolean;
+}
+
 /**
  * Sends TranslatedWordInfo to the Anki builder microservice and receives the .apkg file.
  *
  * @param translatedWordInfos - An array of TranslatedWordInfo objects.
+ * @param config - Configuration for card generation.
  * @returns A Promise that resolves with the byte content of the .apkg file.
  * @throws Error if the API call fails.
  */
-export async function buildAndDownloadAnkiPackage(translatedWordInfos: TranslatedWordInfo[]): Promise<ArrayBuffer> {
+export async function buildAndDownloadAnkiPackage(
+  translatedWordInfos: TranslatedWordInfo[],
+  config: AnkiConfig
+): Promise<ArrayBuffer> {
    // Filter to only include essential fields for Anki cards
    const filteredWordInfos = translatedWordInfos.map(({ originalWord, originalLine, translatedWord, translatedLine }) => ({
      originalWord,
@@ -22,10 +32,17 @@ export async function buildAndDownloadAnkiPackage(translatedWordInfos: Translate
      translatedWord,
      translatedLine
    }));
+
+   // Prepare request body with config
+   const requestBody = {
+     translated_word_infos: filteredWordInfos,
+     config,
+   };
+
    try {
     const response = await axios.post(
       `${ANKI_BUILDER_SERVICE_URL}/build-package`,
-      filteredWordInfos,
+      requestBody,
       {
         responseType: 'arraybuffer', // Important for receiving binary data (.apkg)
         headers: {

@@ -4,14 +4,24 @@
 import { TranslatedWordInfo } from '../types';
 import { buildAndDownloadAnkiPackage } from './ankiApiClient';
 
+interface AnkiConfig {
+  front_fields: string[];
+  back_fields: string[];
+  create_duplicate: boolean;
+}
+
 /**
  * Handles the process of building and retrieving an Anki package.
  *
  * @param translatedWordInfos - An array of TranslatedWordInfo objects.
+ * @param config - Configuration for card generation.
  * @returns A Promise that resolves with the byte content of the .apkg file.
  * @throws Error if the process fails at any step.
  */
-export async function handleAnkiPackageCreation(translatedWordInfos: TranslatedWordInfo[]): Promise<ArrayBuffer> {
+export async function handleAnkiPackageCreation(
+  translatedWordInfos: TranslatedWordInfo[],
+  config: AnkiConfig
+): Promise<ArrayBuffer> {
   if (!translatedWordInfos || translatedWordInfos.length === 0) {
     console.warn('No TranslatedWordInfo provided to handleAnkiPackageCreation.');
     // Depending on requirements, you might return an empty ArrayBuffer, null, or throw an error
@@ -20,7 +30,7 @@ export async function handleAnkiPackageCreation(translatedWordInfos: TranslatedW
 
   try {
     console.log(`Attempting to build Anki package for ${translatedWordInfos.length} words...`);
-    const apkgBytes = await buildAndDownloadAnkiPackage(translatedWordInfos);
+    const apkgBytes = await buildAndDownloadAnkiPackage(translatedWordInfos, config);
     console.log(`Successfully built Anki package with ${apkgBytes.byteLength} bytes.`);
     return apkgBytes;
 
