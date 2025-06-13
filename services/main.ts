@@ -13,9 +13,9 @@
 
 import { OcrResult, TranslatedWordInfo, OcrLineResult } from './types';
 import { processImageForOCR } from './ocr-api';
-import { processAndGroupOcrResults } from './text-grouper'; // Assuming this is the correct function
+import { processAndGroupOcrResults } from './text-grouper';
 import { PapagoTranslateEngine } from './translation/papagoTranslateEngine';
-import { handleAnkiPackageCreation } from './anki/ankiPackageHandler';
+import { createAnkiPackage } from './anki/ankiPackageHandler';
 // import * as storage from './storage';
 // Consider importing validation logic if available
 // import { validateImageData } from './validation';
@@ -60,7 +60,11 @@ export async function processWebtoonImage(
 
     // 5. Create Anki cards and generate .apkg file
     console.log('Creating Anki package...');
-    const ankiPackageBuffer: ArrayBuffer = await handleAnkiPackageCreation(translatedWordInfos);
+    const ankiPackageBuffer: ArrayBuffer = await createAnkiPackage(translatedWordInfos, {
+      front_fields: ['originalWord'],
+      back_fields: ['translatedWord', 'translatedLine'],
+      create_duplicate: false
+    });
     console.log('Anki package creation complete.');
 
     // 6. Return the .apkg file data
