@@ -1,6 +1,7 @@
 import { ITranslationEngine } from "./translationEngine";
 import PapagoTranslate from "papago-translate";
 import { OcrLineResult, TranslatedWordInfo } from "../types";
+import log from 'encore.dev/log';
 
 /**
  * Implementation of ITranslationEngine using the papago-translate NPM package.
@@ -25,13 +26,28 @@ export class PapagoTranslateEngine implements ITranslationEngine {
     this.targetLang = targetLang;
     this.papagoInstance = new PapagoTranslate.Papago(papagoOptions);
     this.translationCache = new Map();
+    log.info('Initialized Papago translation engine', {
+      sourceLang,
+      targetLang,
+      hasOptions: !!papagoOptions
+    });
   }
 
   async translateDeck(deck: OcrLineResult[]): Promise<TranslatedWordInfo[]> {
+    log.info('Starting deck translation', {
+      lineCount: deck.length
+    });
+
     const result: TranslatedWordInfo[] = [];
     for (const ocrLineResult of deck) {
+      log.info('Translating line', {
+        line: ocrLineResult.line,
+        wordCount: ocrLineResult.line.split(" ").length
+      });
+
       const translatedLine = await this.translateLine(ocrLineResult.line);
       const words = ocrLineResult.line.split(" ");
+      
       for (const word of words) {
         const translatedWord = await this.translateWord(word);
         result.push({
@@ -43,6 +59,11 @@ export class PapagoTranslateEngine implements ITranslationEngine {
         });
       }
     }
+
+    log.info('Completed deck translation', {
+      totalWords: result.length
+    });
+
     return result;
   }
 
@@ -54,8 +75,18 @@ export class PapagoTranslateEngine implements ITranslationEngine {
   async translateWord(word: string): Promise<string> {
     const cachedTranslation = this.translationCache.get(word);
     if (cachedTranslation) {
+      log.debug('Using cached translation for word', {
+        word,
+        translation: cachedTranslation
+      });
       return cachedTranslation;
     }
+
+    log.info('Translating word', {
+      word,
+      sourceLang: this.sourceLang,
+      targetLang: this.targetLang
+    });
 
     try {
       const result = await this.papagoInstance.translate({
@@ -65,18 +96,33 @@ export class PapagoTranslateEngine implements ITranslationEngine {
       });
       
       if (result.error) {
+        log.error('Papago translation error for word', {
+          word,
+          error: result.error
+        });
         throw new Error("Papago translation error: " + JSON.stringify(result));
       }
       
       const translation = result.translatedText || result.result?.translation;
       if (!translation) {
+        log.error('Invalid translation result format for word', {
+          word,
+          result
+        });
         throw new Error("Invalid translation result format");
       }
       
       this.translationCache.set(word, translation);
+      log.info('Successfully translated word', {
+        word,
+        translation
+      });
       return translation;
     } catch (error) {
-      console.error("Error translating word with Papago:", error);
+      log.error('Error translating word with Papago', {
+        word,
+        error: error instanceof Error ? error.message : String(error)
+      });
       throw error;
     }
   }
@@ -89,8 +135,18 @@ export class PapagoTranslateEngine implements ITranslationEngine {
   async translateLine(line: string): Promise<string> {
     const cachedTranslation = this.translationCache.get(line);
     if (cachedTranslation) {
+      log.debug('Using cached translation for line', {
+        line,
+        translation: cachedTranslation
+      });
       return cachedTranslation;
     }
+
+    log.info('Translating line', {
+      line,
+      sourceLang: this.sourceLang,
+      targetLang: this.targetLang
+    });
 
     try {
       const result = await this.papagoInstance.translate({
@@ -100,18 +156,33 @@ export class PapagoTranslateEngine implements ITranslationEngine {
       });
       
       if (result.error) {
+        log.error('Papago translation error for line', {
+          line,
+          error: result.error
+        });
         throw new Error("Papago translation error: " + JSON.stringify(result));
       }
       
       const translation = result.translatedText || result.result?.translation;
       if (!translation) {
+        log.error('Invalid translation result format for line', {
+          line,
+          result
+        });
         throw new Error("Invalid translation result format");
       }
       
       this.translationCache.set(line, translation);
+      log.info('Successfully translated line', {
+        line,
+        translation
+      });
       return translation;
     } catch (error) {
-      console.error("Error translating line with Papago:", error);
+      log.error('Error translating line with Papago', {
+        line,
+        error: error instanceof Error ? error.message : String(error)
+      });
       throw error;
     }
   }

@@ -1,4 +1,5 @@
 import { OcrResult, BoundingBox, OcrLineResult } from '../types';
+import log from 'encore.dev/log';
 
 /**
  * Groups OcrResult items into potential speech bubbles based on vertical proximity.
@@ -10,7 +11,16 @@ export function groupTextByProximity(
     ocrData: OcrResult[],
     verticalThreshold: number = 100
 ): OcrResult[][] {
+    log.info('Starting text grouping by proximity', {
+        itemCount: ocrData.length,
+        verticalThreshold
+    });
+
     const sortedData = sortByVerticalPosition(ocrData);
+    log.debug('Sorted data by vertical position', {
+        firstItemY: sortedData[0]?.bbox.y,
+        lastItemY: sortedData[sortedData.length - 1]?.bbox.y
+    });
 
     const groups: OcrResult[][] = [];
     let currentGroup: OcrResult[] = [];
@@ -19,32 +29,48 @@ export function groupTextByProximity(
         const currentItem = sortedData[i];
 
         if (currentGroup.length === 0) {
-            // Start new group
             currentGroup.push(currentItem);
+            log.debug('Started new group', {
+                itemText: currentItem.text,
+                itemY: currentItem.bbox.y
+            });
         } else {
-            // Check if current item is close enough to the last item in the group
             const lastItem = currentGroup[currentGroup.length - 1];
             const verticalDistance = Math.abs(currentItem.bbox.y - lastItem.bbox.y);
 
             if (verticalDistance <= verticalThreshold) {
-                // Add to current group
                 currentGroup.push(currentItem);
+                log.debug('Added item to current group', {
+                    itemText: currentItem.text,
+                    verticalDistance,
+                    groupSize: currentGroup.length
+                });
             } else {
-                // Start new group
                 groups.push([...currentGroup]);
+                log.debug('Created new group', {
+                    previousGroupSize: currentGroup.length,
+                    totalGroups: groups.length
+                });
                 currentGroup = [currentItem];
             }
         }
     }
 
-    // Don't forget the last group
     if (currentGroup.length > 0) {
         groups.push(currentGroup);
+        log.debug('Added final group', {
+            groupSize: currentGroup.length,
+            totalGroups: groups.length
+        });
     }
+
+    log.info('Completed text grouping', {
+        totalGroups: groups.length,
+        averageGroupSize: groups.reduce((acc, group) => acc + group.length, 0) / groups.length
+    });
 
     return groups;
 }
-
 
 /**
  * Sorts OcrResult items by y-coordinate.
@@ -64,16 +90,32 @@ function sortByVerticalPosition(ocrData: OcrResult[]): OcrResult[] {
  * @returns Sorted array of OcrResult objects.
  */
 export function sortGroupByHorizontalPosition(group: OcrResult[], medianTextHeight: number, yToleranceRatio: number = 0.2): OcrResult[] {
+    log.debug('Sorting group by horizontal position', {
+        groupSize: group.length,
+        medianTextHeight,
+        yToleranceRatio
+    });
+
     const yTolerance = medianTextHeight * yToleranceRatio;
-    // Sort primarily by y-coordinate, then by x-coordinate
-    return group.sort((a, b) => {
-        // If the absolute difference in y-coordinates is within the tolerance, sort by x
+    const sortedGroup = group.sort((a, b) => {
         if (Math.abs(a.bbox.y - b.bbox.y) <= yTolerance) {
             return a.bbox.x - b.bbox.x;
         }
-        // Otherwise, sort by y
         return a.bbox.y - b.bbox.y;
     });
+
+    log.debug('Group sorted successfully', {
+        firstItem: {
+            text: sortedGroup[0]?.text,
+            position: { x: sortedGroup[0]?.bbox.x, y: sortedGroup[0]?.bbox.y }
+        },
+        lastItem: {
+            text: sortedGroup[sortedGroup.length - 1]?.text,
+            position: { x: sortedGroup[sortedGroup.length - 1]?.bbox.x, y: sortedGroup[sortedGroup.length - 1]?.bbox.y }
+        }
+    });
+
+    return sortedGroup;
 }
 
 /**
@@ -83,19 +125,29 @@ export function sortGroupByHorizontalPosition(group: OcrResult[], medianTextHeig
  */
 export function combineTextInGroup(group: OcrResult[]): string {
     if (group.length === 0) {
+        log.debug('Empty group, returning empty string');
         return '';
     }
 
-    // Calculate median text height for the group
     const heights = group.map(item => item.bbox.height).sort((a, b) => a - b);
     const medianHeight = heights.length % 2 === 0
         ? (heights[heights.length / 2 - 1] + heights[heights.length / 2]) / 2
         : heights[Math.floor(heights.length / 2)];
 
-    // Use sortGroupByHorizontalPosition with the calculated median height
-    return sortGroupByHorizontalPosition(group, medianHeight)
-        .map(item => item.text)
-        .join(' ');
+    log.debug('Calculated median height for group', {
+        groupSize: group.length,
+        medianHeight
+    });
+
+    const sortedGroup = sortGroupByHorizontalPosition(group, medianHeight);
+    const combinedText = sortedGroup.map(item => item.text).join(' ');
+
+    log.debug('Combined text in group', {
+        groupSize: group.length,
+        combinedTextLength: combinedText.length
+    });
+
+    return combinedText;
 }
 
 /**
@@ -106,8 +158,13 @@ export function combineTextInGroup(group: OcrResult[]): string {
  */
 export function calculateCombinedBoundingBox(bboxes: BoundingBox[]): BoundingBox {
     if (bboxes.length === 0) {
+        log.error('Attempted to calculate combined bounding box for empty array');
         throw new Error("Cannot calculate combined bounding box for an empty array.");
     }
+
+    log.debug('Calculating combined bounding box', {
+        boxCount: bboxes.length
+    });
 
     let minX = Infinity;
     let minY = Infinity;
@@ -121,12 +178,19 @@ export function calculateCombinedBoundingBox(bboxes: BoundingBox[]): BoundingBox
         maxY = Math.max(maxY, bbox.y + bbox.height);
     }
 
-    return {
+    const combinedBox = {
         x: minX,
         y: minY,
         width: maxX - minX,
         height: maxY - minY,
     };
+
+    log.debug('Calculated combined bounding box', {
+        dimensions: combinedBox,
+        originalBoxCount: bboxes.length
+    });
+
+    return combinedBox;
 }
 
 /**
@@ -139,14 +203,33 @@ export function processAndGroupOcrResults(
     ocrResults: OcrResult[],
     verticalThreshold: number = 100
 ): OcrLineResult[] {
-    // 1. Group the OcrResult items by proximity
-    const groupedResults = groupTextByProximity(ocrResults, verticalThreshold);
+    log.info('Starting OCR results processing and grouping', {
+        resultCount: ocrResults.length,
+        verticalThreshold
+    });
 
-    // 2. Combine text and calculate combined bounding box for each group
-    const finalOcrLineResults: OcrLineResult[] = groupedResults.map(group => ({
-        line: combineTextInGroup(group),
-        bbox: calculateCombinedBoundingBox(group.map(item => item.bbox)),
-    }));
+    const groupedResults = groupTextByProximity(ocrResults, verticalThreshold);
+    log.info('Text grouped by proximity', {
+        groupCount: groupedResults.length
+    });
+
+    const finalOcrLineResults: OcrLineResult[] = groupedResults.map((group, index) => {
+        const line = combineTextInGroup(group);
+        const bbox = calculateCombinedBoundingBox(group.map(item => item.bbox));
+        
+        log.debug('Processed group', {
+            groupIndex: index,
+            lineLength: line.length,
+            bboxDimensions: bbox
+        });
+
+        return { line, bbox };
+    });
+
+    log.info('Completed OCR results processing', {
+        inputCount: ocrResults.length,
+        outputCount: finalOcrLineResults.length
+    });
 
     return finalOcrLineResults;
 }

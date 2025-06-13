@@ -3,6 +3,7 @@
 
 import { TranslatedWordInfo } from '../types';
 import { buildAndDownloadAnkiPackage } from './ankiApiClient';
+import log from 'encore.dev/log';
 
 interface AnkiConfig {
   front_fields: string[];
@@ -11,32 +12,32 @@ interface AnkiConfig {
 }
 
 /**
- * Handles the process of building and retrieving an Anki package.
- *
- * @param translatedWordInfos - An array of TranslatedWordInfo objects.
- * @param config - Configuration for card generation.
- * @returns A Promise that resolves with the byte content of the .apkg file.
- * @throws Error if the process fails at any step.
+ * Handles the creation of Anki packages from translated word information.
+ * 
+ * @param translatedWordInfos - Array of translated word information
+ * @param config - Configuration for Anki card generation
+ * @returns Promise resolving to the Anki package as ArrayBuffer
  */
-export async function handleAnkiPackageCreation(
+export async function createAnkiPackage(
   translatedWordInfos: TranslatedWordInfo[],
   config: AnkiConfig
 ): Promise<ArrayBuffer> {
-  if (!translatedWordInfos || translatedWordInfos.length === 0) {
-    console.warn('No TranslatedWordInfo provided to handleAnkiPackageCreation.');
-    // Depending on requirements, you might return an empty ArrayBuffer, null, or throw an error
-    return new ArrayBuffer(0);
-  }
+  log.info('Creating Anki package', {
+    wordCount: translatedWordInfos.length,
+    config
+  });
 
   try {
-    console.log(`Attempting to build Anki package for ${translatedWordInfos.length} words...`);
-    const apkgBytes = await buildAndDownloadAnkiPackage(translatedWordInfos, config);
-    console.log(`Successfully built Anki package with ${apkgBytes.byteLength} bytes.`);
-    return apkgBytes;
-
+    const ankiPackage = await buildAndDownloadAnkiPackage(translatedWordInfos, config);
+    log.info('Successfully created Anki package', {
+      packageSize: ankiPackage.byteLength
+    });
+    return ankiPackage;
   } catch (error) {
-    console.error('Error in handleAnkiPackageCreation:', error);
-    throw new Error('Failed to handle Anki package creation process.');
+    log.error('Failed to create Anki package', {
+      error: error instanceof Error ? error.message : String(error)
+    });
+    throw error;
   }
 }
 

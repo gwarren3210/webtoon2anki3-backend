@@ -6,6 +6,7 @@ import { OcrResult, BoundingBox } from '../types'; // Import original types
 import * as os from 'os';
 import { randomUUID } from 'crypto';
 import { getImageInfo, mapOcrSpaceResultToOcrResultArray, handleError, delay } from './ocrApiUtils'; // Import utilities
+import log from 'encore.dev/log';
 
 /**
  * Configuration for OCR and tiling behavior
@@ -66,19 +67,29 @@ export class SmartOCRProcessor {
         const tempImagePath = path.join(tempDir, `upload_${uniqueId}${getFileExtension(input)}`);
 
         try {
-            console.log('Starting smart OCR processing...');
+            log.info('Starting smart OCR processing', {
+                inputType: typeof input,
+                tempPath: tempImagePath
+            });
 
             // Get file size and basic info
-            const { fileSize, buffer } = await getImageInfo(input); // Use imported utility
-            console.log(`Image size: ${(fileSize / 1024 / 1024).toFixed(2)}MB`);
+            const { fileSize, buffer } = await getImageInfo(input);
+            log.info('Image info retrieved', {
+                fileSizeMB: (fileSize / 1024 / 1024).toFixed(2),
+                bufferSize: buffer.length
+            });
 
             // Save buffer to a temporary file
             await fs.writeFile(tempImagePath, new Uint8Array(buffer));
-            console.log(`Saved temporary image to ${tempImagePath}`);
+            log.debug('Saved temporary image', { path: tempImagePath });
 
             // Check if we need to tile based on file size
             const needsTiling = fileSize > this.config.fileSizeThreshold;
-            console.log(`Tiling ${needsTiling ? 'required' : 'not required'} (threshold: ${(this.config.fileSizeThreshold / 1024 / 1024).toFixed(2)}MB)`);
+            log.info('Tiling assessment', {
+                needsTiling,
+                fileSizeMB: (fileSize / 1024 / 1024).toFixed(2),
+                thresholdMB: (this.config.fileSizeThreshold / 1024 / 1024).toFixed(2)
+            });
 
             if (!needsTiling) {
                 // Process directly without tiling using the temporary file path
@@ -105,15 +116,22 @@ export class SmartOCRProcessor {
                     this.config.ocrEngine = originalEngine;
                 }
             } */
+            log.error('Error in OCR processing', {
+                error: error instanceof Error ? error.message : String(error),
+                stack: error instanceof Error ? error.stack : undefined
+            });
             handleError(error); // Use imported utility
             throw error; // Re-throw after handling
         } finally {
              // Clean up temporary file
              try {
                 await fs.unlink(tempImagePath);
-                console.log(`Cleaned up temporary image file ${tempImagePath}`);
+                log.debug('Cleaned up temporary image', { path: tempImagePath });
             } catch (cleanupError) {
-                console.warn(`Failed to clean up temporary image file ${tempImagePath}:`, cleanupError);
+                log.warn('Failed to clean up temporary image', {
+                    path: tempImagePath,
+                    error: cleanupError instanceof Error ? cleanupError.message : String(cleanupError)
+                });
             }
         }
     }
@@ -124,10 +142,14 @@ export class SmartOCRProcessor {
      * Returns an array of OcrResult objects on success, throws error on failure.
      */
     private async processDirectly(input: string): Promise<OcrResult[]> {
-        console.log('Processing image directly (no tiling required)');
+        log.info('Processing image directly', { path: input });
 
         try {
-            console.log("Sending OCR request...")
+            log.debug('Sending OCR request', {
+                language: this.config.language,
+                engine: this.config.ocrEngine
+            });
+
             const ocrResult = await ocrSpace(input, {
                 apiKey: /* this.config.apiKey || */ 'helloworld', // default api key limit 10 reqs check official site
                 language: this.config.language as any, // Cast to any to resolve linter error - TODO: use OcrSpaceLanguages type if accessible
@@ -136,15 +158,29 @@ export class SmartOCRProcessor {
                 isTable: false,
                 isOverlayRequired: true, // Request overlay to get bounding boxes
             });
-            console.log("received OCR result")
+
+            log.debug('Received OCR result', {
+                exitCode: ocrResult.OCRExitCode,
+                hasError: !!ocrResult.ErrorMessage
+            });
+
             if (ocrResult.OCRExitCode === 1) {
-                console.log('OCR result:', ocrResult);
-                return mapOcrSpaceResultToOcrResultArray(ocrResult); // Use imported utility
+                const results = mapOcrSpaceResultToOcrResultArray(ocrResult);
+                log.info('Successfully processed image', {
+                    resultCount: results.length
+                });
+                return results;
             } else {
+                log.error('OCR processing failed', {
+                    errorMessage: ocrResult.ErrorMessage || 'Unknown error'
+                });
                 throw new Error(`OCR failed: ${ocrResult.ErrorMessage || 'Unknown error'}`);
             }
 
         } catch (error) {
+            log.error('Error in direct OCR processing', {
+                error: error instanceof Error ? error.message : String(error)
+            });
             throw error; // Let the calling function handle/re-throw
         }
     }
@@ -156,7 +192,7 @@ export class SmartOCRProcessor {
      * Returns an array of OcrResult objects on success, throws error on failure.
      */
     private async processWithTiling(filePath: string): Promise<OcrResult[]> {
-        console.log('Processing image with adaptive tiling');
+        log.info('Processing image with adaptive tiling', { path: filePath });
 
         const tempDir = os.tmpdir();
         const uniqueId = randomUUID();
@@ -169,16 +205,23 @@ export class SmartOCRProcessor {
             const imgWidth = metadata.width!;
             const imgHeight = metadata.height!;
 
+            log.info('Image metadata retrieved', {
+                width: imgWidth,
+                height: imgHeight
+            });
+
             // Create tiles with adaptive height
             const tiles = await this.createAdaptiveTiles(filePath);
+            log.info('Created adaptive tiles', { tileCount: tiles.length });
 
             // Process each tile
             for (const { tile, startY } of tiles) { // Destructure to get tile and startY
-                console.log(`Processing tile starting at y=${startY}...`);
+                log.info('Processing tile', { startY });
 
                 const tileTempImagePath = path.join(tempDir, `tile_${uniqueId}_${startY}${getFileExtension(filePath)}`);
                 try {
                     await tile.jpeg({ quality: 85 }).toFile(tileTempImagePath);
+                    log.debug('Saved tile to temporary file', { path: tileTempImagePath });
 
                     const ocrResult = await ocrSpace(tileTempImagePath, {
                         apiKey: this.config.apiKey,
@@ -216,33 +259,56 @@ export class SmartOCRProcessor {
                         processedTiles++;
 
                     } else {
-                        console.warn(`Tile starting at y=${startY} OCR failed: ${ocrResult.ErrorMessage}`);
+                        log.warn('Tile OCR failed', {
+                            startY,
+                            errorMessage: ocrResult.ErrorMessage
+                        });
                     }
 
                     // Add small delay to avoid rate limiting
                     await delay(500);
 
                 } catch (tileError) {
-                    console.warn(`Error processing tile starting at y=${startY}:`, tileError);
+                    log.error('Error processing tile', {
+                        startY,
+                        error: tileError instanceof Error ? tileError.message : String(tileError)
+                    });
                 } finally {
                     try {
                         await fs.unlink(tileTempImagePath);
-                        // console.log(`Cleaned up temporary tile file ${tileTempImagePath}`);
+                        log.debug('Cleaned up temporary tile file', { path: tileTempImagePath });
                     } catch (cleanupError) {
-                        console.warn(`Failed to clean up temporary tile file ${tileTempImagePath}:`, cleanupError);
+                        log.warn('Failed to clean up temporary tile file', {
+                            path: tileTempImagePath,
+                            error: cleanupError instanceof Error ? cleanupError.message : String(cleanupError)
+                        });
                     }
                 }
             }
 
             if (processedTiles === 0) {
+                log.error('No tiles processed successfully');
                 throw new Error('No tiles could be processed successfully');
             }
 
+            log.info('Completed tiled processing', {
+                totalTiles: tiles.length,
+                processedTiles,
+                totalResults: allOcrResults.length
+            });
+
             let filteredOcrResults = this.filterOcrResults(allOcrResults);
+            log.info('Filtered OCR results', {
+                beforeFilter: allOcrResults.length,
+                afterFilter: filteredOcrResults.length
+            });
 
             return filteredOcrResults;
 
         } catch (error) {
+            log.error('Error in tiled OCR processing', {
+                error: error instanceof Error ? error.message : String(error)
+            });
             throw error; // Let the calling function handle/re-throw
         }
     }
@@ -259,7 +325,12 @@ export class SmartOCRProcessor {
         const imgHeight = metadata.height!;
         const fileSize = input instanceof Buffer ? input.length : (await fs.stat(input)).size;
 
-        console.log(`[createAdaptiveTiles] Image dimensions: ${imgWidth}x${imgHeight}, File size: ${fileSize / (1024 * 1024)}MB, Threshold: ${this.config.fileSizeThreshold / (1024 * 1024)}MB`);
+        log.info('Image dimensions and file size', {
+            width: imgWidth,
+            height: imgHeight,
+            fileSizeMB: (fileSize / 1024 / 1024).toFixed(2),
+            thresholdMB: (this.config.fileSizeThreshold / 1024 / 1024).toFixed(2)
+        });
 
         // For small images (less than 1MB), return a single tile
         if (fileSize < this.config.fileSizeThreshold) {
@@ -274,7 +345,12 @@ export class SmartOCRProcessor {
 
         // Ensure tile height is not too large
 
-        console.log(`[createAdaptiveTiles] excessRatio: ${excessRatio}, baseDivisions: ${baseDivisions}, overlapFactor: ${overlapFactor}, tileHeight: ${tileHeight}`);
+        log.info('excessRatio, baseDivisions, overlapFactor, tileHeight', {
+            excessRatio,
+            baseDivisions,
+            overlapFactor,
+            tileHeight
+        });
 
         const tiles: { tile: sharp.Sharp, startY: number }[] = [];
         let startY = 0;
@@ -294,11 +370,16 @@ export class SmartOCRProcessor {
 
             // Move startY for the next tile, accounting for overlap
             const overlapHeight = Math.floor(this.config.overlapPercentage * tileHeight);
-            console.log(`[createAdaptiveTiles] Loop: startY: ${startY}, endY: ${endY}, actualTileHeight: ${actualTileHeight}, overlapHeight: ${overlapHeight}`);
+            log.debug('Loop: startY, endY, actualTileHeight, overlapHeight', {
+                startY,
+                endY,
+                actualTileHeight,
+                overlapHeight
+            });
             startY += tileHeight 
 
         }
-        console.log(`[createAdaptiveTiles] Total tiles created: ${tiles.length}`);
+        log.info('Total tiles created', { tileCount: tiles.length });
 
         return tiles;
     }

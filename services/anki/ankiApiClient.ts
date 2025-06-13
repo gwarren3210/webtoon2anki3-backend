@@ -2,6 +2,7 @@
 
 import axios from 'axios';
 import { TranslatedWordInfo } from '../types';
+import log from 'encore.dev/log';
 
 // NOTE: Replace with the actual URL of your deployed Anki builder microservice
 // For local testing, you can use http://localhost:8080
@@ -25,6 +26,11 @@ export async function buildAndDownloadAnkiPackage(
   translatedWordInfos: TranslatedWordInfo[],
   config: AnkiConfig
 ): Promise<ArrayBuffer> {
+   log.info('Starting Anki package build', {
+     wordCount: translatedWordInfos.length,
+     config
+   });
+
    // Filter to only include essential fields for Anki cards
    const filteredWordInfos = translatedWordInfos.map(({ originalWord, originalLine, translatedWord, translatedLine }) => ({
      originalWord,
@@ -40,6 +46,11 @@ export async function buildAndDownloadAnkiPackage(
    };
 
    try {
+    log.info('Sending request to Anki builder service', {
+      url: `${ANKI_BUILDER_SERVICE_URL}/build-package`,
+      requestBodySize: JSON.stringify(requestBody).length
+    });
+
     const response = await axios.post(
       `${ANKI_BUILDER_SERVICE_URL}/build-package`,
       requestBody,
@@ -51,16 +62,25 @@ export async function buildAndDownloadAnkiPackage(
       }
     );
 
+    log.info('Successfully received response from Anki builder service', {
+      responseSize: response.data.byteLength
+    });
+
     // Axios response.data is an ArrayBuffer for responseType 'arraybuffer'
     return response.data;
 
   } catch (error) {
     if (axios.isAxiosError(error)) {
-      console.error('Error calling Anki builder service:', error.message);
-      console.error('Response data:', error.response?.data?.toString()); // Log response data as string for errors
-      console.error('Response status:', error.response?.status);
+      log.error('Error calling Anki builder service', {
+        error: error.message,
+        status: error.response?.status,
+        responseData: error.response?.data?.toString(),
+        requestBody: requestBody
+      });
     } else {
-      console.error('Unexpected error calling Anki builder service:', error);
+      log.error('Unexpected error calling Anki builder service', {
+        error: error instanceof Error ? error.message : String(error)
+      });
     }
     throw new Error('Failed to build and download Anki package.');
   }
