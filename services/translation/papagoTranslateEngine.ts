@@ -40,13 +40,21 @@ export class PapagoTranslateEngine implements ITranslationEngine {
 
     const result: TranslatedWordInfo[] = [];
     for (const ocrLineResult of deck) {
+      // Skip empty lines
+      if (!ocrLineResult.line.trim()) {
+        log.debug('Skipping empty line', {
+          bbox: ocrLineResult.bbox
+        });
+        continue;
+      }
+
       log.info('Translating line', {
         line: ocrLineResult.line,
         wordCount: ocrLineResult.line.split(" ").length
       });
 
       const translatedLine = await this.translateLine(ocrLineResult.line);
-      const words = ocrLineResult.line.split(" ");
+      const words = ocrLineResult.line.split(" ").filter(word => word.trim()); // Filter out empty words
       
       for (const word of words) {
         const translatedWord = await this.translateWord(word);
@@ -73,6 +81,12 @@ export class PapagoTranslateEngine implements ITranslationEngine {
    * @returns A promise that resolves with the translated word.
    */
   async translateWord(word: string): Promise<string> {
+    // Skip empty words
+    if (!word.trim()) {
+      log.debug('Skipping empty word');
+      return '';
+    }
+
     const cachedTranslation = this.translationCache.get(word);
     if (cachedTranslation) {
       log.debug('Using cached translation for word', {
@@ -133,6 +147,12 @@ export class PapagoTranslateEngine implements ITranslationEngine {
    * @returns A promise that resolves with the translated line.
    */
   async translateLine(line: string): Promise<string> {
+    // Skip empty lines
+    if (!line.trim()) {
+      log.debug('Skipping empty line');
+      return '';
+    }
+
     const cachedTranslation = this.translationCache.get(line);
     if (cachedTranslation) {
       log.debug('Using cached translation for line', {
