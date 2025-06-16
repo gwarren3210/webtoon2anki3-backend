@@ -10,7 +10,9 @@ dotenv.config();
 jest.mock("encore.dev/config", () => ({
   secret: (key: string) => {
     if (key === "GEMINI_API_KEY") {
-      return process.env.GEMINI_KEY;
+      return {
+         geminiApiKey: () => process.env.GEMINI_KEY
+      };
     }
     throw new Error(`Unknown secret key: ${key}`);
   },
@@ -20,7 +22,7 @@ describe("Gemini Service", () => {
     const testDialoguePath = join(__dirname, "../test-data", "full-ocr.dialogue.txt");
     const outputPath = join(__dirname, "../test-data", "processed-words.json");
 
-    it.only("should process dialogue and save words to JSON file", async () => {
+    it("should process dialogue and save words to JSON file", async () => {
         // Read the dialogue file
         const dialogue = readFileSync(testDialoguePath, "utf-8");
         

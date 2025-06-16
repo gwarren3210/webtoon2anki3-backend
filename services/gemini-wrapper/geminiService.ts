@@ -93,7 +93,7 @@ const BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models";
 export const processDialogue = async (dialogue: string): Promise<WordResponse> => {
     try {
         const response = await axios.post(
-            `${BASE_URL}/gemini-2.0-flash:generateContent?key=${geminiApiKey.toString()}`,
+            `${BASE_URL}/gemini-2.0-flash:generateContent?key=${geminiApiKey()}`,
             {
                 contents: [{
                     parts: [{
