@@ -9,11 +9,13 @@ import { getImageInfo, mapOcrSpaceResultToOcrResultArray, handleError, delay } f
 import log from 'encore.dev/log';
 import { Secret, secret } from 'encore.dev/config';
 
+// Define the OCR API key as a secret at the top level
+const OCR_API_KEY = secret("OCR_API_KEY");
+
 /**
  * Configuration for OCR and tiling behavior
  */
 export interface OCRConfig {
-    /** OCR Space API key */
     apiKey?: Secret<"OCR_API_KEY">;
     /** File size threshold in bytes (default: 1MB) */
     fileSizeThreshold?: number;
@@ -47,12 +49,12 @@ export class SmartOCRProcessor {
 
     constructor(config: OCRConfig) {
         this.config = {
+            apiKey: OCR_API_KEY,
             fileSizeThreshold: 1 * 1024 * 1024, // 1MB default
             overlapPercentage: 0.10, // 10% default
             language: 'kor',
             ocrEngine: 2,
             scale: true,
-            apiKey: secret("OCR_API_KEY"),
             ...config
         };
     }
