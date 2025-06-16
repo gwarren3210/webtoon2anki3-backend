@@ -8,6 +8,29 @@ import * as os from 'os';
 import * as crypto from 'crypto';
 import { processImageForOCR } from '../services/ocr-api';
 
+
+/**
+ * Processes an image file for OCR (Optical Character Recognition) and returns detected text with bounding boxes.
+ * @param request - The raw HTTP request containing an image file
+ * @param response - The HTTP response object
+ * @returns JSON response with OCR results containing text and bounding boxes
+ * 
+ * The endpoint expects a POST request with a multipart form data containing an image file.
+ * The image file should be sent as a file upload with the field name 'file'.
+ * 
+ * The response will be a JSON array of OCR results, each containing:
+ * - text: The detected text
+ * - bbox: A bounding box object with x, y, width, and height properties
+ * 
+ * Example response:
+ * [
+ *   {
+ *     "text": "Hello",
+ *     "bbox": { "x": 100, "y": 200, "width": 50, "height": 20 }
+ *   }
+ * ]
+ */
+
 export const ocrEndpoint = api.raw(
   { expose: true, method: "POST", path: "/ocr", bodyLimit: null },
   async (req: IncomingMessage, res: ServerResponse) => {

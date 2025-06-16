@@ -4,6 +4,28 @@ import { processAndGroupOcrResults } from '../services/text-grouper';
 import { getDialogueFromGroupedText } from "../services/text-grouper";
 import { GetDialogueRequest, GetDialogueResponse } from "../services/types";
 
+/**
+ * Groups OCR results into text lines based on vertical proximity.
+ * @param request - The raw HTTP request containing OCR results
+ * @param response - The HTTP response object
+ * @returns JSON response with grouped text lines and their bounding boxes
+ * 
+ * The endpoint expects a POST request with a JSON body containing an array of OCR results.
+ * Each OCR result should have a text field and a bbox field with x, y, width, and height properties.
+ * 
+ * Example request body:
+ * [
+ *   {
+ *     "text": "Hello",
+ *     "bbox": { "x": 100, "y": 200, "width": 50, "height": 20 }
+ *   }
+ * ]
+ * 
+ * The response will be a JSON array of grouped text lines, each containing:
+ * - line: The combined text of the group
+ * - bbox: The bounding box encompassing all text in the group
+ */
+
 
 export const groupTextEndpoint = api.raw(
   { expose: true, method: "POST", path: "/group-text" },

@@ -29,7 +29,44 @@ interface CreateWordListRequest {
     dialogue: string;
 }
 
-// Create the public API endpoint
+/**
+ * Creates a list of Korean words with translations and importance scores from dialogue text.
+ * 
+ * This endpoint processes Korean dialogue text to extract important words, their translations,
+ * and importance scores using the Gemini AI service.
+ * 
+ * @param req - The request object containing:
+ *   - dialogue: The Korean dialogue text to process
+ * @returns Promise<WordResponse> containing:
+ *   - words: Array of {
+ *     word: string;          // The Korean word
+ *     translation: string;   // English translation
+ *     importance: number;    // Importance score (0-1)
+ *   }
+ * 
+ * Example request body:
+ * {
+ *   "dialogue": "안녕하세요. 저는 학생입니다."
+ * }
+ * 
+ * Example response:
+ * {
+ *   "words": [
+ *     {
+ *       "word": "안녕하세요",
+ *       "translation": "hello",
+ *       "importance": 0.8
+ *     },
+ *     {
+ *       "word": "학생",
+ *       "translation": "student",
+ *       "importance": 0.6
+ *     }
+ *   ]
+ * }
+ */
+
+
 export const createWordListEndpoint = api(
     { 
         method: "POST",
