@@ -1,0 +1,224 @@
+{
+  "words": [
+    {
+      "korean": "헌터",
+      "english": "hunter",
+      "importanceScore": 95
+    },
+    {
+      "korean": "협회",
+      "english": "association",
+      "importanceScore": 75
+    },
+    {
+      "korean": "소속",
+      "english": "affiliation, belonging",
+      "importanceScore": 60
+    },
+    {
+      "korean": "계급",
+      "english": "rank, class",
+      "importanceScore": 85
+    },
+    {
+      "korean": "최약",
+      "english": "weakest",
+      "importanceScore": 80
+    },
+    {
+      "korean": "상상하다",
+      "english": "to imagine",
+      "importanceScore": 65
+    },
+    {
+      "korean": "일어나다",
+      "english": "to happen, occur",
+      "importanceScore": 55
+    },
+    {
+      "korean": "레벨업",
+      "english": "level up",
+      "importanceScore": 70
+    },
+    {
+      "korean": "일반인",
+      "english": "ordinary person",
+      "importanceScore": 55
+    },
+    {
+      "korean": "튼튼하다",
+      "english": "to be strong, sturdy",
+      "importanceScore": 50
+    },
+    {
+      "korean": "회복",
+      "english": "recovery",
+      "importanceScore": 60
+    },
+    {
+      "korean": "민망하다",
+      "english": "to be embarrassed, ashamed",
+      "importanceScore": 50
+    },
+    {
+      "korean": "부상",
+      "english": "injury",
+      "importanceScore": 70
+    },
+    {
+      "korean": "달다",
+      "english": "to carry",
+      "importanceScore": 45
+    },
+    {
+      "korean": "목숨",
+      "english": "life",
+      "importanceScore": 65
+    },
+    {
+      "korean": "직업",
+      "english": "occupation, job",
+      "importanceScore": 55
+    },
+    {
+      "korean": "공사",
+      "english": "construction",
+      "importanceScore": 40
+    },
+    {
+      "korean": "현장",
+      "english": "site, scene",
+      "importanceScore": 45
+    },
+    {
+      "korean": "병원비",
+      "english": "hospital bill",
+      "importanceScore": 75
+    },
+    {
+      "korean": "보조금",
+      "english": "subsidy, grant",
+      "importanceScore": 65
+    },
+    {
+      "korean": "버티다",
+      "english": "to endure, withstand",
+      "importanceScore": 50
+    },
+    {
+      "korean": "출신",
+      "english": "origin, background",
+      "importanceScore": 50
+    },
+    {
+      "korean": "선택",
+      "english": "choice, selection",
+      "importanceScore": 60
+    },
+    {
+      "korean": "레이드",
+      "english": "raid",
+      "importanceScore": 90
+    },
+    {
+      "korean": "신경 쓰다",
+      "english": "to pay attention to",
+      "importanceScore": 45
+    },
+    {
+      "korean": "강하다",
+      "english": "to be strong",
+      "importanceScore": 60
+    },
+    {
+      "korean": "반기다",
+      "english": "to welcome",
+      "importanceScore": 40
+    },
+    {
+      "korean": "별명",
+      "english": "nickname",
+      "importanceScore": 70
+    },
+    {
+      "korean": "최약병기",
+      "english": "weakest weapon",
+      "importanceScore": 90
+    },
+    {
+      "korean": "최강병기",
+      "english": "strongest weapon",
+      "importanceScore": 50
+    },
+    {
+      "korean": "호출되다",
+      "english": "to be summoned",
+      "importanceScore": 45
+    },
+    {
+      "korean": "던전",
+      "english": "dungeon",
+      "importanceScore": 85
+    },
+    {
+      "korean": "증거",
+      "english": "evidence, proof",
+      "importanceScore": 50
+    },
+    {
+      "korean": "떨어지다",
+      "english": "to run out, fall",
+      "importanceScore": 35
+    },
+    {
+      "korean": "서럽다",
+      "english": "sad, sorrowful",
+      "importanceScore": 40
+    },
+    {
+      "korean": "괜찮다",
+      "english": "to be alright",
+      "importanceScore": 40
+    },
+    {
+      "korean": "분위기",
+      "english": "atmosphere, mood",
+      "importanceScore": 55
+    },
+    {
+      "korean": "주목",
+      "english": "attention",
+      "importanceScore": 60
+    },
+    {
+      "korean": "즐겁다",
+      "english": "to be joyful",
+      "importanceScore": 30
+    },
+    {
+      "korean": "인솔하다",
+      "english": "to lead, guide",
+      "importanceScore": 40
+    },
+    {
+      "korean": "찬성",
+      "english": "agreement, approval",
+      "importanceScore": 40
+    },
+    {
+      "korean": "실력",
+      "english": "skill, ability",
+      "importanceScore": 55
+    },
+    {
+      "korean": "입장하다",
+      "english": "to enter",
+      "importanceScore": 40
+    },
+    {
+      "korean": "사리다",
+      "english": "to be careful",
+      "importanceScore": 35
+    }
+  ]
+}

@@ -1,1 +1,1 @@
-export { groupTextByProximity, combineTextInGroup, calculateCombinedBoundingBox, processAndGroupOcrResults } from './textGrouper'; 
+export { groupTextByProximity, combineTextInGroup, calculateCombinedBoundingBox, processAndGroupOcrResults, getDialogueFromGroupedText } from './textGrouper'; 

@@ -56,7 +56,6 @@ export class SmartOCRProcessor {
     }
 
     /**
-     * TODO: tiling is not implemented yet.
      * Process image with OCR, automatically tiling if file is too large.
      * Returns an array of OcrResult objects on success, throws error on failure.
      */
@@ -186,7 +185,6 @@ export class SmartOCRProcessor {
     }
 
     /**
-     * TODO
      * Process image with adaptive tiling.
      * Expects a file path as input.
      * Returns an array of OcrResult objects on success, throws error on failure.

@@ -7,6 +7,8 @@ import * as path from 'path';
 import * as os from 'os';
 import * as crypto from 'crypto';
 import { processImageForOCR } from '../services/ocr-api';
+import dotenv from "dotenv";
+dotenv.config();
 
 export const ocrEndpoint = api.raw(
   { expose: true, method: "POST", path: "/ocr", bodyLimit: null },

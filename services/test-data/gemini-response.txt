@@ -1,0 +1,35 @@
+{
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          {
+            "text": "```json\n[\n  {\n    \"korean\": \"헌터\",\n    \"english\": \"hunter\",\n    \"importanceScore\": 95\n  },\n  {\n    \"korean\": \"협회\",\n    \"english\": \"association\",\n    \"importanceScore\": 75\n  },\n  {\n    \"korean\": \"소속\",\n    \"english\": \"affiliation, belonging\",\n    \"importanceScore\": 60\n  },\n  {\n    \"korean\": \"계급\",\n    \"english\": \"rank, class\",\n    \"importanceScore\": 85\n  },\n  {\n    \"korean\": \"최약\",\n    \"english\": \"weakest\",\n    \"importanceScore\": 80\n  },\n  {\n    \"korean\": \"상상하다\",\n    \"english\": \"to imagine\",\n    \"importanceScore\": 65\n  },\n  {\n    \"korean\": \"일어나다\",\n    \"english\": \"to happen, occur\",\n    \"importanceScore\": 55\n  },\n  {\n    \"korean\": \"레벨업\",\n    \"english\": \"level up\",\n    \"importanceScore\": 70\n  },\n    {\n    \"korean\": \"일반인\",\n    \"english\": \"ordinary person\",\n    \"importanceScore\": 55\n  },\n  {\n    \"korean\": \"튼튼하다\",\n    \"english\": \"to be strong, sturdy\",\n    \"importanceScore\": 50\n  },\n  {\n    \"korean\": \"회복\",\n    \"english\": \"recovery\",\n    \"importanceScore\": 60\n  },\n  {\n    \"korean\": \"민망하다\",\n    \"english\": \"to be embarrassed, ashamed\",\n    \"importanceScore\": 50\n  },\n  {\n    \"korean\": \"부상\",\n    \"english\": \"injury\",\n    \"importanceScore\": 70\n  },\n  {\n    \"korean\": \"달다\",\n    \"english\": \"to carry\",\n    \"importanceScore\": 45\n  },\n  {\n    \"korean\": \"목숨\",\n    \"english\": \"life\",\n    \"importanceScore\": 65\n  },\n  {\n    \"korean\": \"직업\",\n    \"english\": \"occupation, job\",\n    \"importanceScore\": 55\n  },\n  {\n    \"korean\": \"공사\",\n    \"english\": \"construction\",\n    \"importanceScore\": 40\n  },\n  {\n    \"korean\": \"현장\",\n    \"english\": \"site, scene\",\n    \"importanceScore\": 45\n  },\n  {\n    \"korean\": \"병원비\",\n    \"english\": \"hospital bill\",\n    \"importanceScore\": 75\n  },\n  {\n    \"korean\": \"보조금\",\n    \"english\": \"subsidy, grant\",\n    \"importanceScore\": 65\n  },\n  {\n    \"korean\": \"버티다\",\n    \"english\": \"to endure, withstand\",\n    \"importanceScore\": 50\n  },\n  {\n    \"korean\": \"출신\",\n    \"english\": \"origin, background\",\n    \"importanceScore\": 50\n  },\n  {\n    \"korean\": \"선택\",\n    \"english\": \"choice, selection\",\n    \"importanceScore\": 60\n  },\n  {\n    \"korean\": \"레이드\",\n    \"english\": \"raid\",\n    \"importanceScore\": 90\n  },\n    {\n    \"korean\": \"신경 쓰다\",\n    \"english\": \"to pay attention to\",\n    \"importanceScore\": 45\n  },\n  {\n    \"korean\": \"강하다\",\n    \"english\": \"to be strong\",\n    \"importanceScore\": 60\n  },\n  {\n    \"korean\": \"반기다\",\n    \"english\": \"to welcome\",\n    \"importanceScore\": 40\n  },\n  {\n    \"korean\": \"별명\",\n    \"english\": \"nickname\",\n    \"importanceScore\": 70\n  },\n    {\n    \"korean\": \"최약병기\",\n    \"english\": \"weakest weapon\",\n    \"importanceScore\": 90\n  },\n    {\n    \"korean\": \"최강병기\",\n    \"english\": \"strongest weapon\",\n    \"importanceScore\": 50\n  },\n    {\n    \"korean\": \"호출되다\",\n    \"english\": \"to be summoned\",\n    \"importanceScore\": 45\n  },\n  {\n    \"korean\": \"던전\",\n    \"english\": \"dungeon\",\n    \"importanceScore\": 85\n  },\n  {\n    \"korean\": \"증거\",\n    \"english\": \"evidence, proof\",\n    \"importanceScore\": 50\n  },\n  {\n    \"korean\": \"떨어지다\",\n    \"english\": \"to run out, fall\",\n    \"importanceScore\": 35\n  },\n    {\n    \"korean\": \"서럽다\",\n    \"english\": \"sad, sorrowful\",\n    \"importanceScore\": 40\n  },\n  {\n    \"korean\": \"괜찮다\",\n    \"english\": \"to be alright\",\n    \"importanceScore\": 40\n  },\n  {\n    \"korean\": \"분위기\",\n    \"english\": \"atmosphere, mood\",\n    \"importanceScore\": 55\n  },\n  {\n    \"korean\": \"주목\",\n    \"english\": \"attention\",\n    \"importanceScore\": 60\n  },\n  {\n    \"korean\": \"즐겁다\",\n    \"english\": \"to be joyful\",\n    \"importanceScore\": 30\n  },\n    {\n    \"korean\": \"인솔하다\",\n    \"english\": \"to lead, guide\",\n    \"importanceScore\": 40\n  },\n  {\n    \"korean\": \"찬성\",\n    \"english\": \"agreement, approval\",\n    \"importanceScore\": 40\n  },\n  {\n    \"korean\": \"실력\",\n    \"english\": \"skill, ability\",\n    \"importanceScore\": 55\n  },\n    {\n    \"korean\": \"입장하다\",\n    \"english\": \"to enter\",\n    \"importanceScore\": 40\n  },\n  {\n    \"korean\": \"사리다\",\n    \"english\": \"to be careful\",\n    \"importanceScore\": 35\n  }\n]\n```"
+          }
+        ],
+        "role": "model"
+      },
+      "finishReason": "STOP",
+      "avgLogprobs": -0.08152138990144131
+    }
+  ],
+  "usageMetadata": {
+    "promptTokenCount": 1575,
+    "candidatesTokenCount": 1515,
+    "totalTokenCount": 3090,
+    "promptTokensDetails": [
+      {
+        "modality": "TEXT",
+        "tokenCount": 1575
+      }
+    ],
+    "candidatesTokensDetails": [
+      {
+        "modality": "TEXT",
+        "tokenCount": 1515
+      }
+    ]
+  },
+  "modelVersion": "gemini-2.0-flash",
+  "responseId": "hjpQaMb9I-PKnvgP--vSgAg"
+}

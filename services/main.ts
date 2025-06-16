@@ -13,7 +13,7 @@
 
 import { OcrResult, TranslatedWordInfo, OcrLineResult } from './types';
 import { processImageForOCR } from './ocr-api';
-import { processAndGroupOcrResults } from './text-grouper';
+import { processAndGroupOcrResults, getDialogueFromGroupedText } from './text-grouper';
 import { PapagoTranslateEngine } from './translation/papagoTranslateEngine';
 import { createAnkiPackage } from './anki/ankiPackageHandler';
 // import * as storage from './storage';
@@ -52,6 +52,8 @@ export async function processWebtoonImage(
     const groupedTextData: OcrLineResult[] = processAndGroupOcrResults(ocrResults);
     console.log('Text grouping complete.');
 
+
+    const allDialogue = getDialogueFromGroupedText(groupedTextData);
     // 4. Translate text
     console.log('Translating text...');
     const translationEngine = new PapagoTranslateEngine(sourceLang, targetLang);

@@ -234,6 +234,31 @@ export function processAndGroupOcrResults(
     return finalOcrLineResults;
 }
 
+/**
+ * Extracts dialogue text from grouped OCR results, filtering out non-dialogue elements.
+ * Adds line breaks between dialogue lines for better readability.
+ * @param groupedTextData - Array of OcrLineResult objects containing grouped text and bounding boxes.
+ * @returns Array of strings containing only the dialogue text with line breaks.
+ */
+export function getDialogueFromGroupedText(groupedTextData: OcrLineResult[]): string[] {
+    log.info('Starting dialogue extraction from grouped text', {
+        inputCount: groupedTextData.length
+    });
+
+    // Filter out empty lines and extract just the text
+    const dialogueLines = groupedTextData
+        .filter(result => result.line.trim().length > 0)
+        .map(result => result.line + '\n'); // Add line break after each line
+
+    log.info('Completed dialogue extraction', {
+        inputCount: groupedTextData.length,
+        outputCount: dialogueLines.length
+    });
+
+    return dialogueLines;
+}
+
+
 // Example usage (can be removed later if not needed for utilities)
 /*
 async function exampleUsage() {

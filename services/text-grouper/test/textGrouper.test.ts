@@ -1,4 +1,4 @@
-import { groupTextByProximity, combineTextInGroup, calculateCombinedBoundingBox, processAndGroupOcrResults } from '../textGrouper';
+import { groupTextByProximity, combineTextInGroup, calculateCombinedBoundingBox, processAndGroupOcrResults, getDialogueFromGroupedText } from '../textGrouper';
 import { OcrResult, OcrLineResult } from '../../types';
 import { describe, it, expect } from '@jest/globals'; // Explicitly import test functions
 import * as fs from 'fs/promises';
@@ -139,3 +139,52 @@ describe('Text Grouping Utility Functions', () => {
         expect(() => calculateCombinedBoundingBox([])).toThrow('Cannot calculate combined bounding box for an empty array.');
     });
 }); 
+
+describe('getDialogueFromGroupedText', () => {
+    it('should extract dialogue and add line breaks', () => {
+        const groupedTextData: OcrLineResult[] = [
+            { line: 'Hello', bbox: { x: 10, y: 10, width: 50, height: 20 } },
+            { line: 'World', bbox: { x: 10, y: 40, width: 50, height: 20 } },
+            { line: '   ', bbox: { x: 10, y: 70, width: 50, height: 20 } }, // Empty line
+            { line: 'How are you?', bbox: { x: 10, y: 100, width: 50, height: 20 } }
+        ];
+
+        const dialogue = getDialogueFromGroupedText(groupedTextData);
+
+        expect(dialogue).toEqual([
+            'Hello\n',
+            'World\n',
+            'How are you?\n'
+        ]);
+    });
+
+    it('should handle empty input', () => {
+        const emptyInput: OcrLineResult[] = [];
+        const dialogue = getDialogueFromGroupedText(emptyInput);
+        expect(dialogue).toEqual([]);
+    });
+
+    it('should filter out empty lines', () => {
+        const groupedTextData: OcrLineResult[] = [
+            { line: '   ', bbox: { x: 10, y: 10, width: 50, height: 20 } },
+            { line: '', bbox: { x: 10, y: 40, width: 50, height: 20 } },
+            { line: 'Valid text', bbox: { x: 10, y: 70, width: 50, height: 20 } }
+        ];
+
+        const dialogue = getDialogueFromGroupedText(groupedTextData);
+
+        expect(dialogue).toEqual(['Valid text\n']);
+    });
+});
+
+describe.only('Export dialogue from full-ocr.json', () => {
+    it('should write dialogue lines from groupedResults to full-ocr.dialogue.txt', async () => {
+        const fullOcrPath = path.join(__dirname, '../../test-data/full-ocr.json');
+        const dialogueOutPath = path.join(__dirname, '../../test-data/full-ocr.dialogue.txt');
+        const raw = await fs.readFile(fullOcrPath, 'utf-8');
+        const json = JSON.parse(raw);
+        const groupedResults = json.groupedResults;
+        const dialogueLines = getDialogueFromGroupedText(groupedResults);
+        await fs.writeFile(dialogueOutPath, dialogueLines.join(''), 'utf-8');
+    });
+});
