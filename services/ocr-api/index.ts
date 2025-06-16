@@ -11,18 +11,11 @@ import * as sampleOcrResults from '../test-data/ocrOutputSample.json'
  * Throws error on failure, unless timeout occurs in test environment, then returns sample data.
  */
 export async function processImageForOCR(
-    input: string | Buffer, 
-    apiKey: string,
+    input: string | Buffer,
     options: Partial<OCRConfig> = {}
 ): Promise<OcrResult[]>{
    console.log("Entered processImageForOCR")
-    if (!apiKey) {
-        apiKey = process.env.OCR_API_KEY as string;
-        if (!apiKey) {
-            console.warn('OCR API key not provided. Using default key.');
-        }
-    }
-    const processor = new SmartOCRProcessor({ apiKey, ...options });
+    const processor = new SmartOCRProcessor(options);
 
     try {
         return await processor.processImage(input); // processImage handles file vs buffer
@@ -50,7 +43,7 @@ export async function batchOCRProcessing(
     apiKey: string,
     outputDir?: string
 ): Promise<{ filename: string; result?: OcrResult[]; error?: string }[]> {
-    const processor = new SmartOCRProcessor({ apiKey });
+    const processor = new SmartOCRProcessor({});
     const results: { filename: string; result?: OcrResult[]; error?: string }[] = [];
 
     try {

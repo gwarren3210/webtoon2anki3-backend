@@ -1,13 +1,24 @@
 import { processImageForOCR } from '../index';
 import * as dotenv from 'dotenv';
-import { describe, it, expect, beforeEach } from '@jest/globals'; // Add beforeEach to imports
-import * as path from 'path'; // Import path module
-import { promises as fs } from 'fs'; // Import file system module
-import { SmartOCRProcessor } from '../smartOcrProcessor'; // Fix import path
+import { describe, it, expect, beforeEach, jest } from '@jest/globals';
+import * as path from 'path';
+import { promises as fs } from 'fs';
+import { SmartOCRProcessor } from '../smartOcrProcessor';
 import { OcrResult } from '../../types';
-import sharp from 'sharp'; // Fix sharp import
+import sharp from 'sharp';
+//import { secret } from 'encore.dev/config';
 
-dotenv.config(); // Load environment variables
+dotenv.config();
+
+// Mock the secret function to return the environment variable
+jest.mock('encore.dev/config', () => ({
+    secret: jest.fn((key: string) => {
+        if (key === 'OCR_API_KEY') {
+            return process.env.OCR_API_KEY;
+        }
+        throw new Error(`Unknown secret key: ${key}`);
+    })
+}));
 
 describe('OCR API Integration Test', () => {
   it('should process an image and return OCR results', async () => {
@@ -24,7 +35,7 @@ describe('OCR API Integration Test', () => {
     console.log('testImagePath:', testImagePath);
     try {
       console.log(`\nProcessing image: ${testImagePath}`);
-      const ocrResults = await processImageForOCR(testImagePath, apiKey);
+      const ocrResults = await processImageForOCR(testImagePath);
 
       // Define the path for the output file
       const outputPath = path.resolve(__dirname, '../../test-data/ocrOutputSample.json');
@@ -58,7 +69,6 @@ describe('SmartOCRProcessor Tiling Tests', () => {
 
     beforeEach(() => {
         processor = new SmartOCRProcessor({
-            apiKey: process.env.OCR_API_KEY as string,
             fileSizeThreshold: 1024 * 1024, // 1MB
             overlapPercentage: 0.1, // 10% overlap
             language: 'kor',
@@ -125,7 +135,6 @@ describe('SmartOCRProcessor Large Image OCR Test', () => {
 
         beforeEach(() => {
             processor = new SmartOCRProcessor({
-                apiKey: process.env.OCR_API_KEY as string,
                 fileSizeThreshold: 1024 * 1024, // 1MB
                 overlapPercentage: 0.1, // 10% overlap
                 language: 'kor',

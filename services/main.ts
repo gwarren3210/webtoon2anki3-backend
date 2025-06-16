@@ -31,7 +31,6 @@ import { createAnkiPackage } from './anki/ankiPackageHandler';
  */
 export async function processWebtoonImage(
   tempImagePath: string,
-  ocrApiKey: string,
   sourceLang: string = 'ko', // Default to Korean
   targetLang: string = 'en' // Default to English
 ): Promise<ArrayBuffer> {
@@ -42,7 +41,7 @@ export async function processWebtoonImage(
 
     // 2. OCR the image
     console.log('Performing OCR...');
-    const ocrResults: OcrResult[] = await processImageForOCR(tempImagePath, ocrApiKey);
+    const ocrResults: OcrResult[] = await processImageForOCR(tempImagePath);
     console.log(`OCR complete. Found ${ocrResults.length} text results.`);
 
     // 3. Group text into meaningful chunks

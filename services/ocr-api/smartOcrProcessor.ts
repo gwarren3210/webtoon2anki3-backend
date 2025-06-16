@@ -7,13 +7,14 @@ import * as os from 'os';
 import { randomUUID } from 'crypto';
 import { getImageInfo, mapOcrSpaceResultToOcrResultArray, handleError, delay } from './ocrApiUtils'; // Import utilities
 import log from 'encore.dev/log';
+import { Secret, secret } from 'encore.dev/config';
 
 /**
  * Configuration for OCR and tiling behavior
  */
 export interface OCRConfig {
     /** OCR Space API key */
-    apiKey: string;
+    apiKey?: Secret<"OCR_API_KEY">;
     /** File size threshold in bytes (default: 1MB) */
     fileSizeThreshold?: number;
     /** Overlap percentage for tiles (default: 0.10 = 10%) */
@@ -51,6 +52,7 @@ export class SmartOCRProcessor {
             language: 'kor',
             ocrEngine: 2,
             scale: true,
+            apiKey: secret("OCR_API_KEY"),
             ...config
         };
     }
@@ -150,12 +152,12 @@ export class SmartOCRProcessor {
             });
 
             const ocrResult = await ocrSpace(input, {
-                apiKey: /* this.config.apiKey || */ 'helloworld', // default api key limit 10 reqs check official site
-                language: this.config.language as any, // Cast to any to resolve linter error - TODO: use OcrSpaceLanguages type if accessible
+                apiKey: this.config.apiKey,
+                language: this.config.language as any,
                 OCREngine: this.config.ocrEngine === 1 ? "1" : "2",
                 scale: this.config.scale,
                 isTable: false,
-                isOverlayRequired: true, // Request overlay to get bounding boxes
+                isOverlayRequired: true,
             });
 
             log.debug('Received OCR result', {

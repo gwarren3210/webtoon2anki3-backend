@@ -7,7 +7,9 @@
   "type": "module",
   "scripts": {
     "test:gemini": "jest services/gemini-wrapper/geminiService.test.ts",
-    "test:gemini:watch": "jest services/gemini-wrapper/geminiService.test.ts --watch"
+    "test:gemini:watch": "jest services/gemini-wrapper/geminiService.test.ts --watch",
+    "test:ocr": "jest services/ocr-api/test/ocrApi.test.ts",
+    "test:ocr:watch": "jest services/ocr-api/test/ocrApi.test.ts --watch"
   },
   "devDependencies": {
     "@jest/globals": "^29.7.0",

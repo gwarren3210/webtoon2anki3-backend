@@ -7,8 +7,7 @@ import * as path from 'path';
 import * as os from 'os';
 import * as crypto from 'crypto';
 import { processImageForOCR } from '../services/ocr-api';
-import dotenv from "dotenv";
-dotenv.config();
+import { secret } from "encore.dev/config";
 
 export const ocrEndpoint = api.raw(
   { expose: true, method: "POST", path: "/ocr", bodyLimit: null },
@@ -45,12 +44,12 @@ export const ocrEndpoint = api.raw(
         await fs.writeFile(tempImagePath, imageData);
 
         // TODO: figure out API thing
-        const ocrApiKey = process.env.OCR_API_KEY || 'helloworld';
+        const ocrApiKey = secret("OCR_API_KEY");
         if (!ocrApiKey) {
           console.warn("OCR_API_KEY not configured");
         }
 
-        const ocrResults = await processImageForOCR(tempImagePath, ocrApiKey);
+        const ocrResults = await processImageForOCR(tempImagePath);
         
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify(ocrResults));
