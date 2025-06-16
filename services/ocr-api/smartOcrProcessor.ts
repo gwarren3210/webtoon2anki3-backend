@@ -10,13 +10,13 @@ import log from 'encore.dev/log';
 import { Secret, secret } from 'encore.dev/config';
 
 // Define the OCR API key as a secret at the top level
-const OCR_API_KEY = secret("OCR_API_KEY");
+const OCR_API_KEY = secret("OCR_API_KEY")();
 
 /**
  * Configuration for OCR and tiling behavior
  */
 export interface OCRConfig {
-    apiKey?: Secret<"OCR_API_KEY">;
+    apiKey?: string;
     /** File size threshold in bytes (default: 1MB) */
     fileSizeThreshold?: number;
     /** Overlap percentage for tiles (default: 0.10 = 10%) */
