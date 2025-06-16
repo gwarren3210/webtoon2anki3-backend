@@ -1,5 +1,6 @@
 import { processDialogue } from "../services/gemini-wrapper/geminiService";
 import type { WordResponse } from "../services/gemini-wrapper/geminiService";
+import { api } from "encore.dev/api";
 
 /**
  * Creates a list of Korean words with translations and importance scores from dialogue text
@@ -17,3 +18,20 @@ export const createWordList = async (dialogue: string): Promise<WordResponse> =>
         throw error;
     }
 };
+
+// Define request/response types
+interface CreateWordListRequest {
+    dialogue: string;
+}
+
+// Create the public API endpoint
+export const createWordListEndpoint = api(
+    { 
+        method: "POST",
+        expose: true,
+        path: "/create-word-list"
+    },
+    async (req: CreateWordListRequest): Promise<WordResponse> => {
+        return await createWordList(req.dialogue);
+    }
+);
