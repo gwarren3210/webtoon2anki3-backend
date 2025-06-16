@@ -35,3 +35,12 @@ export type TranslatedWordInfo = {
   translatedWord: string;
   translatedLine?: string; // Optional translation of the whole line
 };
+
+
+export interface GetDialogueRequest {
+  groupedTextData: OcrLineResult[];
+}
+
+export interface GetDialogueResponse {
+  dialogueLines: string[];
+}

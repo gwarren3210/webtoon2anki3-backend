@@ -1,6 +1,9 @@
 import { api } from "encore.dev/api";
 import { IncomingMessage, ServerResponse } from "http";
 import { processAndGroupOcrResults } from '../services/text-grouper';
+import { getDialogueFromGroupedText } from "../services/text-grouper";
+import { GetDialogueRequest, GetDialogueResponse } from "../services/types";
+
 
 export const groupTextEndpoint = api.raw(
   { expose: true, method: "POST", path: "/group-text" },
@@ -20,4 +23,21 @@ export const groupTextEndpoint = api.raw(
       }
     });
   }
+); 
+
+/**
+ * Extracts dialogue text from grouped OCR results.
+ * @param request - The request containing grouped text data
+ * @returns Array of strings containing only the dialogue text with line breaks
+ */
+export const getDialogue = api(
+    { 
+        method: "POST",
+        expose: true,
+        path: "/get-dialogue"
+    },
+    async (request: GetDialogueRequest): Promise<GetDialogueResponse> => {
+        const dialogueLines = getDialogueFromGroupedText(request.groupedTextData);
+        return { dialogueLines };
+    }
 ); 
