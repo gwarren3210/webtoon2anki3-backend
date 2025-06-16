@@ -7,7 +7,6 @@ import * as path from 'path';
 import * as os from 'os';
 import * as crypto from 'crypto';
 import { processImageForOCR } from '../services/ocr-api';
-import { secret } from "encore.dev/config";
 
 export const ocrEndpoint = api.raw(
   { expose: true, method: "POST", path: "/ocr", bodyLimit: null },
@@ -42,12 +41,6 @@ export const ocrEndpoint = api.raw(
         const tempFileName = `ocr-image-${crypto.randomBytes(16).toString('hex')}.jpg`;
         const tempImagePath = path.join(os.tmpdir(), tempFileName);
         await fs.writeFile(tempImagePath, imageData);
-
-        // TODO: figure out API thing
-        const ocrApiKey = secret("OCR_API_KEY");
-        if (!ocrApiKey) {
-          console.warn("OCR_API_KEY not configured");
-        }
 
         const ocrResults = await processImageForOCR(tempImagePath);
         
