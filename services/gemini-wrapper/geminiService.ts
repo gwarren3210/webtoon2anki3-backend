@@ -88,16 +88,12 @@ Dialogue:
     ]
   }'
  */
-const API_KEY = geminiApiKey;
-if (!API_KEY) {
-  throw new Error("GEMINI_KEY environment variable is not set");
-}
 const BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models";
 
 export const processDialogue = async (dialogue: string): Promise<WordResponse> => {
     try {
         const response = await axios.post(
-            `${BASE_URL}/gemini-2.0-flash:generateContent?key=${API_KEY}`,
+            `${BASE_URL}/gemini-2.0-flash:generateContent?key=${geminiApiKey.toString()}`,
             {
                 contents: [{
                     parts: [{

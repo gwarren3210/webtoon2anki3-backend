@@ -1,6 +1,8 @@
 import { processDialogue } from "../services/gemini-wrapper/geminiService";
 import type { WordResponse } from "../services/gemini-wrapper/geminiService";
 import { api } from "encore.dev/api";
+import { APIError } from "encore.dev/api";
+import log from "encore.dev/log";
 
 /**
  * Creates a list of Korean words with translations and importance scores from dialogue text
@@ -14,7 +16,10 @@ export const createWordList = async (dialogue: string): Promise<WordResponse> =>
         
         return result;
     } catch (error) {
-        console.error("Error creating word list:", error);
+        log.error("Error creating word list:", {
+            error: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined
+        });
         throw error;
     }
 };
@@ -32,6 +37,37 @@ export const createWordListEndpoint = api(
         path: "/create-word-list"
     },
     async (req: CreateWordListRequest): Promise<WordResponse> => {
-        return await createWordList(req.dialogue);
+        try {
+            log.info("Received word list creation request", {
+                dialogueLength: req.dialogue.length
+            });
+
+            if (!req.dialogue) {
+                throw APIError.invalidArgument("dialogue is required");
+            }
+
+            const result = await createWordList(req.dialogue);
+            
+            log.info("Successfully created word list", {
+                wordCount: result.words.length
+            });
+
+            return result;
+        } catch (error) {
+            log.error("Error in createWordListEndpoint:", {
+                error: error instanceof Error ? error.message : String(error),
+                stack: error instanceof Error ? error.stack : undefined
+            });
+
+            if (error instanceof APIError) {
+                throw error;
+            }
+
+            // Convert unknown errors to internal server error
+            throw APIError.internal(
+                "Failed to process dialogue",
+                new Error(error instanceof Error ? error.message : String(error))
+            );
+        }
     }
 );
