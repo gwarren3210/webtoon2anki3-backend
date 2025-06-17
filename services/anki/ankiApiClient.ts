@@ -24,7 +24,7 @@ interface AnkiConfig {
  */
 export async function buildAndDownloadAnkiPackage(
   translatedWordInfos: TranslatedWordInfo[],
-  config: AnkiConfig
+  config?: AnkiConfig
 ): Promise<ArrayBuffer> {
    log.info('Starting Anki package build', {
      wordCount: translatedWordInfos.length,

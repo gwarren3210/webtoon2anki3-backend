@@ -29,10 +29,7 @@ export const createAnkiPackage = api.raw(
       try {
         const request: CreateAnkiPackageRequest = JSON.parse(body);
         
-        log.info('Received request to create Anki package', {
-          wordCount: request.translatedWordInfos.length,
-          config: request.config
-        });
+        log.info('Received request to create Anki package', request);
 
         const ankiPackage = await createPackage(request.translatedWordInfos, request.config);
         
