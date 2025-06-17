@@ -6,6 +6,7 @@ import { IncomingMessage, ServerResponse } from 'http';
 
 interface CreateAnkiPackageRequest {
   translatedWordInfos: TranslatedWordInfo[];
+  deckName: string;
   config: {
     front_fields: string[];
     back_fields: string[];
@@ -28,13 +29,21 @@ export const createAnkiPackage = api.raw(
     req.on('end', async () => {
       try {
         const request: CreateAnkiPackageRequest = JSON.parse(body);
+        // Validate required fields
+        if (!request.translatedWordInfos || !Array.isArray(request.translatedWordInfos)) {
+          throw new Error('translatedWordInfos must be a non-empty array');
+        }
+        if (!request.deckName || typeof request.deckName !== 'string') {
+          throw new Error('deckName must be a non-empty string');
+        }
         
         log.info('Received request to create Anki package', {
           wordCount: request.translatedWordInfos.length,
+          name: request.deckName,
           config: request.config
         });
 
-        const ankiPackage = await createPackage(request.translatedWordInfos, request.config);
+        const ankiPackage = await createPackage(request.translatedWordInfos, request.deckName, request.config);
         
         log.info('Successfully created Anki package', {
           packageSize: ankiPackage.byteLength

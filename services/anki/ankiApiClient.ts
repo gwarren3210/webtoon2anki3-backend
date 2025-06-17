@@ -24,6 +24,7 @@ interface AnkiConfig {
  */
 export async function buildAndDownloadAnkiPackage(
   translatedWordInfos: TranslatedWordInfo[],
+  deckName: string,
   config?: AnkiConfig
 ): Promise<ArrayBuffer> {
    log.info('Starting Anki package build', {
@@ -40,6 +41,7 @@ export async function buildAndDownloadAnkiPackage(
    // Prepare request body with config
    const requestBody = {
      translated_word_infos: filteredWordInfos,
+     deck_name: deckName,
      config,
    };
 

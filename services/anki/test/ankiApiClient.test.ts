@@ -27,7 +27,7 @@ describe('buildAndDownloadAnkiPackage', () => {
 
   it('should successfully call the microservice and return an ArrayBuffer', async () => {
     try {
-      const apkgBytes = await buildAndDownloadAnkiPackage(sampleTranslatedWordInfos);
+      const apkgBytes = await buildAndDownloadAnkiPackage(sampleTranslatedWordInfos, "Test Name 1");
 
       // Expect the result to be an Buffer
       expect(apkgBytes).toBeInstanceOf(Buffer);
@@ -80,7 +80,7 @@ describe('buildAndDownloadAnkiPackage', () => {
     }
 
     try {
-      const apkgBytes = await buildAndDownloadAnkiPackage(translatedWordInfos, config);
+      const apkgBytes = await buildAndDownloadAnkiPackage(translatedWordInfos, "Test Name 2",config);
 
       // Verify the response is an ArrayBuffer
       expect(apkgBytes).toBeInstanceOf(Buffer);
@@ -129,7 +129,7 @@ describe('buildAndDownloadAnkiPackage', () => {
         create_duplicate: true
       };
 
-      const ankiPackage = await buildAndDownloadAnkiPackage(translatedWordInfos, config);
+      const ankiPackage = await buildAndDownloadAnkiPackage(translatedWordInfos, "Test Name 3", config);
       
       // Verify the response is a Buffer
       expect(ankiPackage).toBeInstanceOf(Buffer);

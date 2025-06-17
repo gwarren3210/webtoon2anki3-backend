@@ -20,6 +20,7 @@ interface AnkiConfig {
  */
 export async function createAnkiPackage(
   translatedWordInfos: TranslatedWordInfo[],
+  deckName: string,
   config: AnkiConfig
 ): Promise<ArrayBuffer> {
   log.info('Creating Anki package', {
@@ -28,7 +29,7 @@ export async function createAnkiPackage(
   });
 
   try {
-    const ankiPackage = await buildAndDownloadAnkiPackage(translatedWordInfos, config);
+    const ankiPackage = await buildAndDownloadAnkiPackage(translatedWordInfos, deckName, config);
     log.info('Successfully created Anki package', {
       packageSize: ankiPackage.byteLength
     });
