@@ -130,20 +130,44 @@ describe('buildAndDownloadAnkiPackage', () => {
       throw error;
     }
   });
-  it.only('should create an Anki package with test data from ankiService', async () => {
-    const { testCreateAnkiPackage } = require('../../../../frontend/src/services/ankiService');
-    
+  it('should create an Anki package with test data from ankiService', async () => {
     try {
-      const ankiPackage = await testCreateAnkiPackage();
+      const testWords = [
+        { english: 'name', importanceScore: 75, korean: '이름' },
+        { english: 'family name/surname', importanceScore: 65, korean: '성' },
+        { english: 'Jinwoo (given name)', importanceScore: 65, korean: '진우' },
+        { english: 'hunter', importanceScore: 95, korean: '헌터' },
+        { english: 'class/grade/level', importanceScore: 85, korean: '급' },
+        { english: 'association', importanceScore: 80, korean: '협회' },
+        { english: 'affiliation/belonging', importanceScore: 70, korean: '소속' }
+      ];
+
+      const translatedWordInfos = testWords.map(word => ({
+        originalWord: word.korean,
+        originalLine: word.korean,
+        translatedWord: word.english,
+        translatedLine: word.english,
+        originalLineBbox: {
+          x: 0,
+          y: 0,
+          width: 100,
+          height: 20
+        }
+      }));
+
+      const config = {
+        front_fields: ["Original Word"],
+        back_fields: ["Translated Word"],
+        create_duplicate: true
+      };
+
+      const ankiPackage = await buildAndDownloadAnkiPackage(translatedWordInfos, config);
       
-      // Verify the response is a Blob
-      expect(ankiPackage).toBeInstanceOf(Blob);
-      
-      // Convert Blob to ArrayBuffer for size verification
-      const arrayBuffer = await ankiPackage.arrayBuffer();
+      // Verify the response is a Buffer
+      expect(ankiPackage).toBeInstanceOf(Buffer);
       
       // Verify the package has content
-      expect(arrayBuffer.byteLength).toBeGreaterThan(1000);
+      expect(ankiPackage.byteLength).toBeGreaterThan(1000);
       
       // Write the package to a file for inspection
       const testOutputDir = path.join(__dirname, 'test-output');
@@ -154,10 +178,86 @@ describe('buildAndDownloadAnkiPackage', () => {
       }
       
       const outputPath = path.join(testOutputDir, `test-anki-package-service-${Date.now()}.apkg`);
-      fs.writeFileSync(outputPath, Buffer.from(arrayBuffer));
+      fs.writeFileSync(outputPath, Buffer.from(ankiPackage));
       console.log(`Test package written to: ${outputPath}`);
       
-      console.log(`Test successful: Created Anki package with ${arrayBuffer.byteLength} bytes from ankiService.`);
+      console.log(`Test successful: Created Anki package with ${ankiPackage.byteLength} bytes from ankiService.`);
+      
+    } catch (error) {
+      console.error('Test failed:', error);
+      throw error;
+    }
+  });
+
+  it('should create an Anki package via API endpoint', async () => {
+    try {
+      const ANKI_BUILDER_SERVICE_URL = 'https://anki-builder-530177289872.us-central1.run.app';
+      const testWords = [
+        { english: 'name', importanceScore: 75, korean: '이름' },
+        { english: 'family name/surname', importanceScore: 65, korean: '성' },
+        { english: 'Jinwoo (given name)', importanceScore: 65, korean: '진우' },
+        { english: 'hunter', importanceScore: 95, korean: '헌터' },
+        { english: 'class/grade/level', importanceScore: 85, korean: '급' },
+        { english: 'association', importanceScore: 80, korean: '협회' },
+        { english: 'affiliation/belonging', importanceScore: 70, korean: '소속' }
+      ];
+
+      const translatedWordInfos = testWords.map(word => ({
+        originalWord: word.korean,
+        originalLine: word.korean,
+        translatedWord: word.english,
+        translatedLine: word.english,
+        originalLineBbox: {
+          x: 0,
+          y: 0,
+          width: 100,
+          height: 20
+        }
+      }));
+
+      const requestBody = {
+        translated_word_infos: translatedWordInfos,
+        config: {
+          front_fields: ["Original Word"],
+          back_fields: ["Translated Word"],
+          create_duplicate: true
+        }
+      };
+
+      const response = await fetch(`${ANKI_BUILDER_SERVICE_URL}/build-package`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody)
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`API request failed: ${response.status} ${errorText}`);
+      }
+
+      const ankiPackage = await response.arrayBuffer();
+      
+      // Verify the response is an ArrayBuffer
+      expect(ankiPackage).toBeInstanceOf(ArrayBuffer);
+      
+      // Verify the package has content
+      expect(ankiPackage.byteLength).toBeGreaterThan(1000);
+      
+      // Write the package to a file for inspection
+      const testOutputDir = path.join(__dirname, 'test-output');
+      
+      // Create test-output directory if it doesn't exist
+      if (!fs.existsSync(testOutputDir)) {
+        fs.mkdirSync(testOutputDir);
+      }
+      
+      const outputPath = path.join(testOutputDir, `test-anki-package-api-${Date.now()}.apkg`);
+      fs.writeFileSync(outputPath, Buffer.from(ankiPackage));
+      console.log(`Test package written to: ${outputPath}`);
+      
+      console.log(`Test successful: Created Anki package with ${ankiPackage.byteLength} bytes via API endpoint.`);
       
     } catch (error) {
       console.error('Test failed:', error);

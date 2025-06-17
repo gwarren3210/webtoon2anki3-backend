@@ -32,11 +32,12 @@ export async function buildAndDownloadAnkiPackage(
    });
 
    // Filter to only include essential fields for Anki cards
-   const filteredWordInfos = translatedWordInfos.map(({ originalWord, originalLine, translatedWord, translatedLine }) => ({
+   const filteredWordInfos = translatedWordInfos.map(({ originalWord, originalLine, translatedWord, translatedLine, originalLineBbox }) => ({
      originalWord,
      originalLine,
      translatedWord,
-     translatedLine
+     translatedLine,
+     originalLineBbox
    }));
 
    // Prepare request body with config

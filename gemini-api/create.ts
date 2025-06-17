@@ -41,7 +41,7 @@ interface CreateWordListRequest {
  *   - words: Array of {
  *     word: string;          // The Korean word
  *     translation: string;   // English translation
- *     importance: number;    // Importance score (0-1)
+ *     importance: number;    // Importance score (0-100)
  *   }
  * 
  * Example request body:
@@ -65,8 +65,6 @@ interface CreateWordListRequest {
  *   ]
  * }
  */
-
-
 export const createWordListEndpoint = api(
     { 
         method: "POST",
