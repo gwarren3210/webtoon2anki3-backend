@@ -31,12 +31,10 @@ def create_anki_model(config):
     genanki.Model: The configured Anki model
   """
   try:
-    # Define the fields
+    # Define the fields - only English and Korean
     fields = [
-      {'name': 'Original Line'},
-      {'name': 'Translated Line'},
-      {'name': 'Original Word'},
-      {'name': 'Translated Word'},
+      {'name': 'English'},
+      {'name': 'Korean'},
     ]
 
     # Create templates based on configuration
@@ -70,12 +68,13 @@ def create_anki_model(config):
     logger.error(traceback.format_exc())
     raise
 
-def build_anki_package(translated_word_infos, config=None):
+def build_anki_package(translated_word_infos, deck_name, config=None):
   """
   Builds an Anki package (.apkg) from a list of translated word information.
 
   Args:
-    translated_word_infos (list): A list of dictionaries, each representing TranslatedWordInfo.
+    translated_word_infos (list): A list of dictionaries, each containing 'english' and 'korean' fields.
+    deck_name (str): Name of the Anki deck to create.
     config (dict, optional): Configuration for card generation. Can include:
       - front_fields (list): Fields to show on front of card
       - back_fields (list): Fields to show on back of card
@@ -87,8 +86,8 @@ def build_anki_package(translated_word_infos, config=None):
   try:
     # Default configuration
     default_config = {
-      'front_fields': ['Original Line', 'Original Word'],
-      'back_fields': ['Translated Line', 'Translated Word'],
+      'front_fields': ['Korean'],
+      'back_fields': ['English'],
       'create_duplicate': False
     }
     
@@ -107,19 +106,17 @@ def build_anki_package(translated_word_infos, config=None):
     anki_deck_id = random.randrange(1 << 30, 1 << 31)
     my_deck = genanki.Deck(
       anki_deck_id,
-      'Webtoon Translated Words'
+      deck_name
     )
 
     for info in translated_word_infos:
       try:
-        # Create the note with all fields
+        # Create the note with English and Korean fields
         my_note = genanki.Note(
           model=anki_model,
           fields=[
-            info.get('originalLine', ''),
-            info.get('translatedLine', ''),
-            info.get('originalWord', ''),
-            info.get('translatedWord', '')
+            info.get('english', ''),
+            info.get('korean', '')
           ])
         my_deck.add_note(my_note)
       except Exception as e:
@@ -154,7 +151,8 @@ def build_package():
   """
   Flask endpoint to receive translated word information and return an Anki package.
   Input: JSON body containing:
-    - translated_word_infos: list of TranslatedWordInfo objects
+    - translated_word_infos: list of objects with 'english' and 'korean' fields
+    - deck_name: name for the Anki deck
     - config (optional): Configuration for card generation
   Output: .apkg file as a response.
   """
@@ -166,15 +164,27 @@ def build_package():
     logger.info(f"Received request with data: {json.dumps(data, indent=2)}")
     
     translated_word_infos = data.get('translated_word_infos', [])
+    deck_name = data.get('deck_name')
     config = data.get('config', {})
 
     if not isinstance(translated_word_infos, list):
-        return jsonify({"error": "translated_word_infos must be a list of TranslatedWordInfo"}), 400
+        return jsonify({"error": "translated_word_infos must be a list"}), 400
+    
+    if not deck_name:
+        return jsonify({"error": "deck_name is required"}), 400
+
+    # Validate that each word info has both english and korean fields
+    for info in translated_word_infos:
+        if not isinstance(info, dict) or 'english' not in info or 'korean' not in info:
+            return jsonify({
+                "error": "Each word info must contain 'english' and 'korean' fields",
+                "invalid_item": info
+            }), 400
 
     try:
-        apkg_bytes = build_anki_package(translated_word_infos, config)
+        apkg_bytes = build_anki_package(translated_word_infos, deck_name, config)
         response = Response(apkg_bytes, mimetype='application/octet-stream')
-        response.headers.set('Content-Disposition', 'attachment', filename='webtoon_anki_package.apkg')
+        response.headers.set('Content-Disposition', 'attachment', filename=f'{deck_name}.apkg')
         return response
     except Exception as e:
         logger.error(f"Error building Anki package: {str(e)}")

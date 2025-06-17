@@ -8,28 +8,12 @@ import * as fs from 'fs'
 // Sample data matching the TranslatedWordInfo structure
 const sampleTranslatedWordInfos: TranslatedWordInfo[] = [
   {
-    originalWord: "안녕하세요",
-    originalLine: "안녕하세요",
-    translatedWord: "Hello",
-    translatedLine: "Hello",
-    originalLineBbox: {
-      x: 1,
-      y: 1,
-      width: 1,
-      height: 1,
-    },
+    korean: "안녕하세요",
+    english: "Hello",
   },
   {
-    originalWord: "감사합니다",
-    originalLine: "정말 감사합니다!",
-    translatedWord: "Thank you",
-    translatedLine: "Thank you very much!",
-    originalLineBbox: {
-      x: 1,
-      y: 1,
-      width: 1,
-      height: 1,
-    },
+    korean: "감사합니다",
+    english: "Thank you",
   }
 ];
 
@@ -85,22 +69,14 @@ describe('buildAndDownloadAnkiPackage', () => {
     ];
 
     const translatedWordInfos = testWords.map(word => ({
-      originalWord: word.korean,
-      originalLine: '',
-      translatedWord: word.english,
-      translatedLine: '',
-      originalLineBbox: {
-        x: 1,
-        y: 1,
-        width: 1,
-        height: 1,
-      }
+      korean: word.korean,
+      english: word.english,
     }));
 
     const config = {
-      front_fields: ["Original Word"],
-      back_fields: ["Translated Word"],
-      create_duplicate: true
+      front_fields: ["Korean"],
+      back_fields: ["English"],
+      create_duplicate: false
     }
 
     try {
@@ -143,16 +119,8 @@ describe('buildAndDownloadAnkiPackage', () => {
       ];
 
       const translatedWordInfos = testWords.map(word => ({
-        originalWord: word.korean,
-        originalLine: word.korean,
-        translatedWord: word.english,
-        translatedLine: word.english,
-        originalLineBbox: {
-          x: 0,
-          y: 0,
-          width: 100,
-          height: 20
-        }
+        korean: word.korean,
+        english: word.english,
       }));
 
       const config = {

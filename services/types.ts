@@ -28,11 +28,11 @@ export type OcrLineResult = {
  * Information about a translated word, its original context, and optional line translation.
  */
 export type TranslatedWordInfo = {
-  originalWord: string;
+  korean: string;
   originalWordBbox?: BoundingBox; // TODO: refactor code to pass along or find BB
-  originalLine: string;
-  originalLineBbox: BoundingBox;
-  translatedWord: string;
+  originalLine?: string;
+  originalLineBbox?: BoundingBox;
+  english: string;
   translatedLine?: string; // Optional translation of the whole line
 };
 
