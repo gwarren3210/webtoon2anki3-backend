@@ -43,8 +43,17 @@ def create_anki_model(config):
     # Create front template
     front_template = {
       'name': 'Card 1',
-      'qfmt': '<br><br>'.join(f'{{{{{field}}}}}' for field in config['front_fields']),
-      'afmt': '{{FrontSide}}<hr id="answer">' + '<br><br>'.join(f'{{{{{field}}}}}' for field in config['back_fields'])
+      'qfmt': (
+        '<div style="text-align: center; display: flex; justify-content: center; align-items: center; height: 100vh; font-size: 24px;">' +
+        '<br><br>'.join(f'{{{{{field}}}}}' for field in config['front_fields']) +
+        '</div>'
+      ),
+      'afmt': (
+        '<div style="text-align: center; display: flex; justify-content: center; align-items: center; height: 100vh; font-size: 24px;">' +
+        '{{FrontSide}}<hr id="answer">' +
+        '<br><br>'.join(f'{{{{{field}}}}}' for field in config['back_fields']) +
+        '</div>'
+      )
     }
     templates.append(front_template)
 
@@ -52,8 +61,17 @@ def create_anki_model(config):
     if config['create_duplicate']:
       back_template = {
         'name': 'Card 2',
-        'qfmt': '<br><br>'.join(f'{{{{{field}}}}}' for field in config['back_fields']),
-        'afmt': '{{FrontSide}}<hr id="answer">' + '<br><br>'.join(f'{{{{{field}}}}}' for field in config['front_fields'])
+        'qfmt': (
+          '<div style="text-align: center; display: flex; justify-content: center; align-items: center; height: 100vh; font-size: 24px;">' +
+          '<br><br>'.join(f'{{{{{field}}}}}' for field in config['back_fields']) +
+          '</div>'
+        ),
+        'afmt': (
+          '<div style="text-align: center; display: flex; justify-content: center; align-items: center; height: 100vh; font-size: 24px;">' +
+          '{{FrontSide}}<hr id="answer">' +
+          '<br><br>'.join(f'{{{{{field}}}}}' for field in config['front_fields']) +
+          '</div>'
+        )
       }
       templates.append(back_template)
 
