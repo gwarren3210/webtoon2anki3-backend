@@ -65,8 +65,7 @@ export const addSeries = api<AddSeriesParams, AddSeriesResponse>(
         });
         skippedCount++;
       } else {
-        const metadata = node;
-        const newSeries = await insertSeries(metadata, type);
+        const newSeries = await insertSeries(node, type);
         const { id, main_picture, ...rest } = node;
         resultsWithStatus.push({
           malId,
@@ -97,7 +96,7 @@ async function searchMalByTitle(title: string, type: "anime" | "manga"): Promise
   const fields = [
     "id,title,main_picture,alternative_titles,start_date,end_date,synopsis,mean,rank,popularity,num_list_users,num_scoring_users,nsfw,created_at,updated_at,media_type,status,genres,my_list_status,num_episodes,num_volumes,num_chapters,start_season,broadcast,source,average_episode_duration,rating,pictures,background,related_anime,related_manga,recommendations,studios,statistics,authors{first_name,last_name},serialization{name}"
   ];
-  const url = `https://api.myanimelist.net/v2/manga?q=${encodeURIComponent(title)}&limit=10`;
+  const url = `https://api.myanimelist.net/v2/manga?q=${encodeURIComponent(title)}&limit=10&fields=${fields}`;
   const resp = await fetch(url, {
     headers: { "X-MAL-CLIENT-ID": clientId },
   });
@@ -140,7 +139,7 @@ async function checkSeriesExists(malId: number): Promise<boolean> {
 async function insertSeries(metadata: any, type: "anime" | "manga"): Promise<{ id: string }> {
   const { data, error } = await supabase.from('mal_series').insert({
     mal_id: metadata.id,
-    type: type,
+    type: metadata.media_type,
     title: metadata.title,
     alternative_titles: metadata.alternative_titles,
     main_picture: metadata.main_picture?.large || metadata.main_picture?.medium,
