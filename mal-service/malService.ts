@@ -56,21 +56,22 @@ export const addSeries = api<AddSeriesParams, AddSeriesResponse>(
       const malId = node.id;
       const exists = await checkSeriesExists(malId);
       if (exists) {
+        const { id, main_picture, ...rest } = node;
         resultsWithStatus.push({
           malId,
-          title: node.title,
           imageUrl: node.main_picture?.large || node.main_picture?.medium || undefined,
-          inserted: false
+          ...rest,
+          inserted: false,
         });
         skippedCount++;
       } else {
         const metadata = node;
         const newSeries = await insertSeries(metadata, type);
+        const { id, main_picture, ...rest } = node;
         resultsWithStatus.push({
           malId,
-          title: node.title,
           imageUrl: node.main_picture?.large || node.main_picture?.medium || undefined,
-          inserted: true,
+          ...rest,          inserted: true,
           uuid: newSeries.id
         });
         insertedCount++;
