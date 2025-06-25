@@ -27,7 +27,9 @@ interface AddSeriesResponse {
   matches?: MalSearchResult[];
 }
 
-const db = SQLDatabase.named("mal-service");
+const db = new SQLDatabase("mal-service", {
+  migrations: "./migrations",
+});
 
 const malClientIdSecret = secret("MAL_CLIENT_ID");
 
