@@ -1,9 +1,8 @@
-import { api, APIError, ErrCode } from "encore.dev/api";
-import { SQLDatabase } from "encore.dev/storage/sqldb";
+import { api, APIError } from "encore.dev/api";
 import log from "encore.dev/log";
-import { v4 as uuidv4 } from "uuid";
 import { MalSeries } from "./types";
 import { secret } from "encore.dev/config";
+import { supabase } from "../supabase/client";
 
 interface AddSeriesParams {
   title: string;
@@ -26,10 +25,6 @@ interface AddSeriesResponse {
   uuid?: string;
   matches?: MalSearchResult[];
 }
-
-const db = new SQLDatabase("mal-service", {
-  migrations: "./migrations",
-});
 
 const malClientIdSecret = secret("MAL_CLIENT_ID");
 
@@ -70,14 +65,13 @@ export const addSeries = api<AddSeriesParams, AddSeriesResponse>(
         skippedCount++;
       } else {
         const metadata = node;
-        const uuid = uuidv4();
-        await insertSeries(uuid, metadata, type);
+        const newSeries = await insertSeries(metadata, type);
         resultsWithStatus.push({
           malId,
           title: node.title,
           imageUrl: node.main_picture?.large || node.main_picture?.medium || undefined,
           inserted: true,
-          uuid
+          uuid: newSeries.id
         });
         insertedCount++;
       }
@@ -102,7 +96,7 @@ async function searchMalByTitle(title: string, type: "anime" | "manga"): Promise
   const fields = [
     "id,title,main_picture,alternative_titles,start_date,end_date,synopsis,mean,rank,popularity,num_list_users,num_scoring_users,nsfw,created_at,updated_at,media_type,status,genres,my_list_status,num_episodes,num_volumes,num_chapters,start_season,broadcast,source,average_episode_duration,rating,pictures,background,related_anime,related_manga,recommendations,studios,statistics,authors{first_name,last_name},serialization{name}"
   ];
-  const url = `https://api.myanimelist.net/v2/${endpoint}?q=${encodeURIComponent(title)}&limit=10`;
+  const url = `https://api.myanimelist.net/v2/manga?q=${encodeURIComponent(title)}&limit=10`;
   const resp = await fetch(url, {
     headers: { "X-MAL-CLIENT-ID": clientId },
   });
@@ -123,60 +117,69 @@ async function searchMalByTitle(title: string, type: "anime" | "manga"): Promise
  * @returns true if exists, false otherwise
  */
 async function checkSeriesExists(malId: number): Promise<boolean> {
-  const row = await db.queryRow<{ id: string }>`SELECT id FROM mal_series WHERE mal_id = ${malId}`;
-  return !!row;
+  const { data, error } = await supabase
+    .from('mal_series')
+    .select('id')
+    .eq('mal_id', malId)
+    .maybeSingle();
+
+  if (error) {
+    log.error("failed to check series existence in supabase", { malId, error: error.message });
+    throw APIError.internal("failed to check series existence").withDetails({ supabaseError: error });
+  }
+  return !!data;
 }
 
 /**
  * Insert a new series into the database.
- * @param uuid - System-generated UUID
  * @param metadata - MAL metadata object
  * @param type - 'anime' or 'manga'
+ * @returns The newly inserted series record.
  */
-async function insertSeries(uuid: string, metadata: any, type: "anime" | "manga"): Promise<void> {
-  // Map metadata to DB columns
-  await db.exec`
-    INSERT INTO mal_series (
-      id, mal_id, type, title, alternative_titles, main_picture, start_date, end_date, synopsis, mean, rank, popularity, num_list_users, num_scoring_users, nsfw, created_at, updated_at, media_type, status, genres, my_list_status, num_episodes, num_volumes, num_chapters, start_season, broadcast, source, average_episode_duration, rating, pictures, background, related_anime, related_manga, recommendations, studios, statistics, authors, serialization
-    ) VALUES (
-      ${uuid},
-      ${metadata.id},
-      ${type},
-      ${metadata.title},
-      ${JSON.stringify(metadata.alternative_titles)},
-      ${metadata.main_picture?.large || metadata.main_picture?.medium || null},
-      ${metadata.start_date},
-      ${metadata.end_date},
-      ${metadata.synopsis},
-      ${metadata.mean},
-      ${metadata.rank},
-      ${metadata.popularity},
-      ${metadata.num_list_users},
-      ${metadata.num_scoring_users},
-      ${metadata.nsfw},
-      ${metadata.created_at},
-      ${metadata.updated_at},
-      ${metadata.media_type},
-      ${metadata.status},
-      ${JSON.stringify(metadata.genres)},
-      ${JSON.stringify(metadata.my_list_status)},
-      ${metadata.num_episodes},
-      ${metadata.num_volumes},
-      ${metadata.num_chapters},
-      ${JSON.stringify(metadata.start_season)},
-      ${JSON.stringify(metadata.broadcast)},
-      ${metadata.source},
-      ${metadata.average_episode_duration},
-      ${metadata.rating},
-      ${JSON.stringify(metadata.pictures)},
-      ${metadata.background},
-      ${JSON.stringify(metadata.related_anime)},
-      ${JSON.stringify(metadata.related_manga)},
-      ${JSON.stringify(metadata.recommendations)},
-      ${JSON.stringify(metadata.studios)},
-      ${JSON.stringify(metadata.statistics)},
-      ${JSON.stringify(metadata.authors)},
-      ${JSON.stringify(metadata.serialization)}
-    )
-  `;
+async function insertSeries(metadata: any, type: "anime" | "manga"): Promise<{ id: string }> {
+  const { data, error } = await supabase.from('mal_series').insert({
+    mal_id: metadata.id,
+    type: type,
+    title: metadata.title,
+    alternative_titles: metadata.alternative_titles,
+    main_picture: metadata.main_picture?.large || metadata.main_picture?.medium,
+    start_date: metadata.start_date,
+    end_date: metadata.end_date,
+    synopsis: metadata.synopsis,
+    mean: metadata.mean,
+    rank: metadata.rank,
+    popularity: metadata.popularity,
+    num_list_users: metadata.num_list_users,
+    num_scoring_users: metadata.num_scoring_users,
+    nsfw: metadata.nsfw,
+    created_at: metadata.created_at,
+    updated_at: metadata.updated_at,
+    media_type: metadata.media_type,
+    status: metadata.status,
+    genres: metadata.genres,
+    my_list_status: metadata.my_list_status,
+    num_episodes: metadata.num_episodes,
+    num_volumes: metadata.num_volumes,
+    num_chapters: metadata.num_chapters,
+    start_season: metadata.start_season,
+    broadcast: metadata.broadcast,
+    source: metadata.source,
+    average_episode_duration: metadata.average_episode_duration,
+    rating: metadata.rating,
+    pictures: metadata.pictures,
+    background: metadata.background,
+    related_anime: metadata.related_anime,
+    related_manga: metadata.related_manga,
+    recommendations: metadata.recommendations,
+    studios: metadata.studios,
+    statistics: metadata.statistics,
+    authors: metadata.authors,
+    serialization: metadata.serialization
+  }).select('id').single();
+
+  if (error) {
+    log.error("failed to insert series into supabase", { malId: metadata.id, error: error.message });
+    throw APIError.internal("failed to insert series").withDetails({ supabaseError: error });
+  }
+  return data;
 } 

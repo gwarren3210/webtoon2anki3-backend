@@ -1,6 +1,8 @@
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
 CREATE TABLE mal_series (
-    id UUID PRIMARY KEY,
-    mal_id INTEGER NOT NULL,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    mal_id INTEGER NOT NULL UNIQUE,
     type TEXT NOT NULL,
     title TEXT NOT NULL,
     alternative_titles JSONB,

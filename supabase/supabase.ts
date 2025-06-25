@@ -1,13 +1,7 @@
-import { Service } from "encore.dev/service";
 import { api, APIError, Header, Query } from "encore.dev/api";
-import { createClient } from "@supabase/supabase-js";
-import { secret } from "encore.dev/config";
-import { authHandler, AuthData } from "./auth";
+import { authHandler } from "./auth";
 import { getAuthData } from "~encore/auth";
-
-const supabaseUrl = secret("SUPABASE_URL");
-const supabaseServiceRoleKey = secret("SUPABASE_ANON_KEY");
-const supabase = createClient(supabaseUrl(), supabaseServiceRoleKey());
+import { supabase } from "./client";
 
 // ===================
 // API Definitions
