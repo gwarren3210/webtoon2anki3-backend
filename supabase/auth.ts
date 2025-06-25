@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { secret } from "encore.dev/config";
 
 const supabaseUrl = secret("SUPABASE_URL");
-const supabaseServiceRoleKey = secret("SUPABASE_SERVICE_ROLE_KEY");
+const supabaseServiceRoleKey = secret("SUPABASE_ANON_KEY");
 
 const supabase = createClient(supabaseUrl(), supabaseServiceRoleKey());
 
