@@ -5,13 +5,9 @@ import { secret } from "encore.dev/config";
 import { authHandler, AuthData } from "./auth";
 import { getAuthData } from "~encore/auth";
 
-const service = new Service("supabase");
 const supabaseUrl = secret("SUPABASE_URL");
 const supabaseServiceRoleKey = secret("SUPABASE_SERVICE_ROLE_KEY");
 const supabase = createClient(supabaseUrl(), supabaseServiceRoleKey());
-
-// This is a service that handles supabase-related logic.
-export default service;
 
 // ===================
 // API Definitions
