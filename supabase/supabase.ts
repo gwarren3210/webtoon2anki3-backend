@@ -6,7 +6,7 @@ import { authHandler, AuthData } from "./auth";
 import { getAuthData } from "~encore/auth";
 
 const supabaseUrl = secret("SUPABASE_URL");
-const supabaseServiceRoleKey = secret("SUPABASE_SERVICE_ROLE_KEY");
+const supabaseServiceRoleKey = secret("SUPABASE_ANON_KEY");
 const supabase = createClient(supabaseUrl(), supabaseServiceRoleKey());
 
 // ===================
