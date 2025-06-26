@@ -976,7 +976,8 @@ export const createDeck = api<CreateDeckRequest, CreateDeckResponse>({
     .eq('name', seriesName)
     .maybeSingle();
   if (seriesError || !series) {
-    throw APIError.notFound("Series not found");
+    throw APIError.notFound("Series not found: ")
+      .withDetails({ error: seriesError?.message || null });
   }
   const { data: chapter, error: chapterError } = await supabase
     .from('chapters')
