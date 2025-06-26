@@ -678,6 +678,7 @@ interface EditCardRequest {
 interface EditCardResponse {
   card: any;
 }
+// TODO: 
 export const editCard = api<EditCardRequest, EditCardResponse>({
   method: "PATCH",
   path: "/supabase/cards/:cardId",
@@ -704,6 +705,7 @@ interface DeleteCardRequest {
 interface DeleteCardResponse {
   success: boolean;
 }
+// TODO: 
 export const deleteCard = api<DeleteCardRequest, DeleteCardResponse>({
   method: "DELETE",
   path: "/supabase/cards/:cardId",
@@ -924,14 +926,156 @@ export const previewDeck = api<PreviewDeckRequest, PreviewDeckResponse>({
   if (deckError || !deck) {
     throw APIError.internal("failed to get deck").withDetails({ error: deckError?.message });
   }
+  // Fetch cards from deck_words + words
   const { data: cards, error: cardsError } = await supabase
-    .from('words')
-    .select('*')
+    .from('deck_words')
+    .select('*, word:words(*)')
     .eq('deck_id', deckId);
   if (cardsError) {
     throw APIError.internal("failed to get deck cards").withDetails({ error: cardsError.message });
   }
   return { deck, cards: cards || [] };
+});
+
+// --- DeckWords SRS fields ---
+interface DeckWordSRSFields {
+  state: string; // StudyState
+  interval: number;
+  eFactor: number;
+  consecutiveCorrect: number;
+  consecutiveIncorrect: number;
+  totalReviews: number;
+  nextReviewDate: string; // ISO date
+  lastReviewedDate?: string; // ISO date
+  firstSeenDate: string; // ISO date
+  createdAt: string; // ISO date
+  updatedAt: string; // ISO date
+}
+
+// --- Create Deck endpoint (refactored for deck_words join table) ---
+interface CreateDeckRequest {
+  seriesName: string;
+  chapterNumber: string;
+  userId: string;
+  name?: string;
+  maxLength?: number;
+}
+interface CreateDeckResponse {
+  deck: any;
+  cards: Array<any>; // Each card is a row from deck_words joined with word info
+}
+export const createDeck = api<CreateDeckRequest, CreateDeckResponse>({
+  method: "POST",
+  path: "/supabase/decks",
+  expose: true,
+}, async ({ seriesName, chapterNumber, userId, name, maxLength }) => {
+  // Find the chapter
+  const { data: series, error: seriesError } = await supabase
+    .from('series')
+    .select('id')
+    .eq('name', seriesName)
+    .maybeSingle();
+  if (seriesError || !series) {
+    throw APIError.notFound("Series not found");
+  }
+  const { data: chapter, error: chapterError } = await supabase
+    .from('chapters')
+    .select('id')
+    .eq('chapter_number', chapterNumber)
+    .eq('series_id', series.id)
+    .maybeSingle();
+  if (chapterError || !chapter) {
+    throw APIError.notFound("Chapter not found");
+  }
+  // Get words for the chapter, order by importance_score
+  const { data: chapterWords, error: wordsError } = await supabase
+    .from('chapter_words')
+    .select('word_id, importance_score')
+    .eq('chapter_id', chapter.id)
+    .order('importance_score', { ascending: false });
+  if (wordsError) {
+    throw APIError.internal("Failed to get chapter words").withDetails({ error: wordsError.message });
+  }
+  let selectedWordIds = chapterWords?.map(w => w.word_id) || [];
+  if (maxLength && maxLength > 0) {
+    selectedWordIds = selectedWordIds.slice(0, maxLength);
+  }
+  // Create the deck
+  const deckName = name || `${seriesName} Chapter ${chapterNumber}`;
+  const { data: deck, error: deckError } = await supabase
+    .from('decks')
+    .insert({
+      name: deckName,
+      user_id: userId,
+      chapter_id: chapter.id
+    })
+    .select('*')
+    .single();
+  if (deckError || !deck) {
+    throw APIError.internal("Failed to create deck").withDetails({ error: deckError?.message });
+  }
+  // For each word, create a deck_words row with initial SRS state
+  const now = new Date().toISOString();
+  const initialSRS = {
+    state: 'new',
+    interval: 0,
+    eFactor: 2.5,
+    consecutiveCorrect: 0,
+    consecutiveIncorrect: 0,
+    totalReviews: 0,
+    nextReviewDate: now,
+    lastReviewedDate: null,
+    firstSeenDate: null,
+    createdAt: now,
+    updatedAt: now,
+  };
+  for (const wordId of selectedWordIds) {
+    await supabase.from('deck_words').insert({
+      deck_id: deck.id,
+      word_id: wordId,
+      user_id: userId,
+      ...initialSRS
+    });
+  }
+  // Fetch the cards for the deck (join deck_words + words)
+  const { data: cards, error: cardsError } = await supabase
+    .from('deck_words')
+    .select('*, word:words(*)')
+    .eq('deck_id', deck.id)
+    .eq('user_id', userId);
+  if (cardsError) {
+    throw APIError.internal("Failed to fetch deck cards").withDetails({ error: cardsError.message });
+  }
+  return { deck, cards: cards || [] };
+});
+
+// --- Deck Due endpoint (refactored for deck_words join table) ---
+interface DeckDueRequest {
+  deckId: string;
+}
+interface DeckDueResponse {
+  due: Array<any>;
+}
+export const deckDue = api<DeckDueRequest, DeckDueResponse>({
+  method: "GET",
+  path: "/supabase/decks/:deckId/due",
+  expose: true,
+}, async ({ deckId }) => {
+  // Find all cards in the deck for the user, join with words
+  const { data: cards, error: cardsError } = await supabase
+    .from('deck_words')
+    .select('*, word:words(*)')
+    .eq('deck_id', deckId);
+  if (cardsError) {
+    throw APIError.internal("Failed to fetch deck cards").withDetails({ error: cardsError.message });
+  }
+  // Find due cards (based on nextReviewDate)
+  const now = new Date();
+  const dueCards = (cards || []).filter(card => {
+    if (!card.nextReviewDate) return true;
+    return new Date(card.nextReviewDate) <= now;
+  }).sort((a, b) => (new Date(a.nextReviewDate)).valueOf() - (new Date(b.nextReviewDate)).valueOf());
+  return { due: dueCards };
 });
 
 // --- Dev endpoints ---
