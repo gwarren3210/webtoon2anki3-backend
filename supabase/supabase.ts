@@ -522,7 +522,7 @@ export const listChapters = api<ListChaptersRequest, ListChaptersResponse>({
   const { data, error } = await supabase
     .from('chapters')
     .select('id, series_id, chapter_number, difficulty, created_at')
-    .eq('id', seriesId)
+    .eq('series_id', seriesId)
     .order('chapter_number', { ascending: true });
   if (error) {
     throw APIError.internal("failed to list chapters").withDetails({ error: error.message });
