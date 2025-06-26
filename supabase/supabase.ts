@@ -1019,15 +1019,15 @@ export const createDeck = api<CreateDeckRequest, CreateDeckResponse>({
   const initialSRS = {
     state: 'new',
     interval: 0,
-    eFactor: 2.5,
-    consecutiveCorrect: 0,
-    consecutiveIncorrect: 0,
-    totalReviews: 0,
-    nextReviewDate: now,
-    lastReviewedDate: null,
-    firstSeenDate: null,
-    createdAt: now,
-    updatedAt: now,
+    e_factor: 2.5,
+    consecutive_correct: 0,
+    consecutive_incorrect: 0,
+    total_reviews: 0,
+    next_review_date: now,
+    last_reviewed_date: null,
+    first_seen_date: null,
+    created_at: now,
+    updated_at: now,
   };
   for (const wordId of selectedWordIds) {
     await supabase.from('deck_words').insert({
