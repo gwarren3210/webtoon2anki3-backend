@@ -687,7 +687,7 @@ export const editCard = api<EditCardRequest, EditCardResponse>({
     .from('words')
     .update({ word, definition })
     .eq('id', cardId)
-    .select('*')
+    .select()
   if (updateError) {
     throw APIError.internal("failed to update card").withDetails({ error: updateError.message });
   }
