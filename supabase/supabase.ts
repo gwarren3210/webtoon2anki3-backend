@@ -867,11 +867,10 @@ export const listDecks = api<ListDecksRequest, ListDecksResponse>({
   expose: true,
 }, async ({ genre, difficulty, trending, new: isNew, status }) => {
   let query = supabase.from('decks').select('*');
-  if (genre) query = query.eq('genre', genre);
-  if (difficulty) query = query.eq('difficulty', difficulty);
-  if (status) query = query.eq('status', status);
   // TODO: Implement trending/new logic if needed
-  const { data, error } = await query;
+  const { data, error } = await supabase
+      .from('decks')
+      .select('*');
   if (error) {
     throw APIError.internal("failed to list decks").withDetails({ error: error.message });
   }
