@@ -952,6 +952,8 @@ interface DeckWordSRSFields {
   updatedAt: string; // ISO date
 }
 
+import { supabaseUrl } from "./client";
+
 // --- Create Deck endpoint (refactored for deck_words join table) ---
 interface CreateDeckRequest {
   seriesName: string;
@@ -977,7 +979,8 @@ export const createDeck = api<CreateDeckRequest, CreateDeckResponse>({
     .maybeSingle();
   if (seriesError || !series) {
     throw APIError.notFound("Series not found: ")
-      .withDetails({ error: seriesError?.message || null });
+      .withDetails({ error: seriesError?.message || null })
+      .withDetails({error: supabaseUrl()});
   }
   const { data: chapter, error: chapterError } = await supabase
     .from('chapters')
