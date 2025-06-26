@@ -626,7 +626,7 @@ export const addCard = api<AddCardRequest, AddCardResponse>({
   } else {
     const { data: newWord, error: createWordError } = await supabase
       .from('words')
-      .insert({ word, definition, example })
+      .insert({ word, definition })
       .select('id')
       .single();
 
@@ -685,7 +685,7 @@ export const editCard = api<EditCardRequest, EditCardResponse>({
 }, async ({ cardId, word, definition, romanization, example }) => {
   const { data: updatedWord, error: updateError } = await supabase
     .from('words')
-    .update({ word, definition, romanization, example })
+    .update({ word, definition })
     .eq('id', cardId)
     .select('*')
     .single();
