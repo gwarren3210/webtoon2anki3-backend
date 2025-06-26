@@ -162,6 +162,9 @@ export const createChapter = api<CreateChapterRequest, CreateChapterResponse>({
     if (createSeriesError) {
       throw APIError.internal("failed to create series").withDetails({ error: createSeriesError.message });
     }
+    if (!newSeries) {
+      throw APIError.internal("Failed to create series, check RLS policy.");
+    }
     series = newSeries;
   }
   // Create chapter
@@ -175,6 +178,9 @@ export const createChapter = api<CreateChapterRequest, CreateChapterResponse>({
     .single();
   if (chapterError) {
     throw APIError.internal("failed to create chapter").withDetails({ error: chapterError.message });
+  }
+  if (!chapter) {
+    throw APIError.internal("Failed to create chapter, check RLS policy.");
   }
   // Save words and collect their DB IDs
   const wordMappings: { word: { korean: string; english: string; importanceScore: number }, wordId: string }[] = [];
@@ -203,6 +209,9 @@ export const createChapter = api<CreateChapterRequest, CreateChapterResponse>({
           .single();
         if (createWordError) {
           continue; // Skip this word
+        }
+        if (!newWord) {
+          continue; // Or throw, but this is safer in a loop
         }
         wordId = newWord.id;
       }
@@ -460,6 +469,9 @@ export const createSeries = api<CreateSeriesRequest, CreateSeriesResponse>({
   if (error) {
     throw APIError.internal("failed to create series").withDetails({ error: error.message });
   }
+  if (!data) {
+    throw APIError.internal("failed to create series. Check RLS policies.");
+  }
   return { series: { id: data.id, name: data.name, createdAt: data.created_at } };
 });
 
@@ -552,6 +564,9 @@ export const lockChapter = api<LockUnlockChapterRequest, LockUnlockChapterRespon
   if (error) {
     throw APIError.internal("failed to lock chapter").withDetails({ error: error.message });
   }
+  if (!data) {
+    throw APIError.notFound("Chapter not found or failed to lock.");
+  }
   return { chapter: { id: data.id, locked: true } };
 });
 
@@ -569,6 +584,9 @@ export const unlockChapter = api<LockUnlockChapterRequest, LockUnlockChapterResp
     .single();
   if (error) {
     throw APIError.internal("failed to unlock chapter").withDetails({ error: error.message });
+  }
+  if (!data) {
+    throw APIError.notFound("Chapter not found or failed to unlock.");
   }
   return { chapter: { id: data.id, locked: false } };
 });
@@ -598,6 +616,9 @@ export const addCard = api<AddCardRequest, AddCardResponse>({
     if (createWordError) {
       throw APIError.internal("failed to create word").withDetails({ error: createWordError.message });
     }
+    if (!newWord) {
+        throw APIError.internal("Failed to create card, check RLS policy.");
+    }
   return { newWord };
 });
 
@@ -624,6 +645,9 @@ export const editCard = api<EditCardRequest, EditCardResponse>({
     .single();
   if (updateError) {
     throw APIError.internal("failed to update card").withDetails({ error: updateError.message });
+  }
+  if (!updatedWord) {
+      throw APIError.notFound("Card not found or failed to update.");
   }
   return { card: updatedWord };
 });
@@ -702,6 +726,9 @@ export const createUser = api<CreateUserRequest, CreateUserResponse>({
     .single();
   if (error) {
     throw APIError.internal("failed to create user").withDetails({ error: error.message });
+  }
+  if (!data) {
+      throw APIError.internal("Failed to create user, check RLS policy.");
   }
   return { user: data };
 });
@@ -822,6 +849,9 @@ export const featureDeck = api<FeatureDeckRequest, FeatureDeckResponse>({
     .single();
   if (error) {
     throw APIError.internal("failed to feature deck").withDetails({ error: error.message });
+  }
+  if (!data) {
+      throw APIError.notFound("Deck not found or failed to feature.");
   }
   return { deck: data };
 });
