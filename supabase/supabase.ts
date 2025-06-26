@@ -432,4 +432,505 @@ export const getPerformanceStats = api<{}, GetPerformanceStatsResponse>({
     if (row.due_date && new Date(row.due_date) <= now) due++;
   });
   return { stats: { mastered, reviewing, learning, new: newCount, due } };
+});
+
+// --- Series endpoints ---
+interface ListSeriesResponse {
+  series: Array<{ id: string; name: string; createdAt: string }>;
+}
+export const listSeries = api<{}, ListSeriesResponse>({
+  method: "GET",
+  path: "/supabase/series",
+  auth: true,
+}, async () => {
+  const user = getAuthData();
+  const { data, error } = await supabase
+    .from('series')
+    .select('id, name, created_at')
+    .order('created_at', { ascending: false });
+  if (error) {
+    throw APIError.internal("failed to list series").withDetails({ error: error.message });
+  }
+  return { series: (data || []).map((s: any) => ({ id: s.id, name: s.name, createdAt: s.created_at })) };
+});
+
+interface CreateSeriesRequest {
+  name: string;
+}
+interface CreateSeriesResponse {
+  series: { id: string; name: string; createdAt: string };
+}
+export const createSeries = api<CreateSeriesRequest, CreateSeriesResponse>({
+  method: "POST",
+  path: "/supabase/series",
+  auth: true,
+}, async ({ name }) => {
+  const user = getAuthData();
+  const { data, error } = await supabase
+    .from('series')
+    .insert({ name })
+    .select('id, name, created_at')
+    .single();
+  if (error) {
+    throw APIError.internal("failed to create series").withDetails({ error: error.message });
+  }
+  return { series: { id: data.id, name: data.name, createdAt: data.created_at } };
+});
+
+interface SearchSeriesRequest {
+  query: Query<string>;
+}
+interface SearchSeriesResponse {
+  series: Array<{ id: string; name: string; createdAt: string }>;
+}
+export const searchSeries = api<SearchSeriesRequest, SearchSeriesResponse>({
+  method: "GET",
+  path: "/supabase/series/search",
+  auth: true,
+}, async ({ query }) => {
+  const user = getAuthData();
+  const { data, error } = await supabase
+    .from('series')
+    .select('id, name, created_at')
+    .ilike('name', `%${query}%`)
+    .order('created_at', { ascending: false });
+  if (error) {
+    throw APIError.internal("failed to search series").withDetails({ error: error.message });
+  }
+  return { series: (data || []).map((s: any) => ({ id: s.id, name: s.name, createdAt: s.created_at })) };
+});
+
+// --- Chapter: List, Lock, Unlock endpoints ---
+interface ListChaptersRequest {
+  seriesId: string;
+}
+interface ListChaptersResponse {
+  chapters: Array<{
+    id: string;
+    seriesId: string;
+    number: number;
+    title?: string;
+    sourceFile?: string;
+    private?: boolean;
+    difficulty?: string;
+    unlocked: boolean;
+    createdAt: string;
+  }>;
+}
+export const listChapters = api<ListChaptersRequest, ListChaptersResponse>({
+  method: "GET",
+  path: "/supabase/series/:seriesId/chapters",
+  auth: true,
+}, async ({ seriesId }) => {
+  const user = getAuthData();
+  const { data, error } = await supabase
+    .from('chapters')
+    .select('id, series_id, chapter_number, title, source_file, private, difficulty, unlocked, created_at')
+    .eq('series_id', seriesId)
+    .order('chapter_number', { ascending: true });
+  if (error) {
+    throw APIError.internal("failed to list chapters").withDetails({ error: error.message });
+  }
+  return {
+    chapters: (data || []).map((c: any) => ({
+      id: c.id,
+      seriesId: c.series_id,
+      number: c.chapter_number,
+      title: c.title,
+      sourceFile: c.source_file,
+      private: c.private,
+      difficulty: c.difficulty,
+      unlocked: c.unlocked,
+      createdAt: c.created_at,
+    })),
+  };
+});
+
+interface LockUnlockChapterRequest {
+  seriesId: string;
+  chapterNumber: string;
+}
+interface LockUnlockChapterResponse {
+  chapter: { id: string; locked: boolean };
+}
+export const lockChapter = api<LockUnlockChapterRequest, LockUnlockChapterResponse>({
+  method: "POST",
+  path: "/supabase/series/:seriesId/chapters/:chapterNumber/lock",
+  auth: true,
+}, async ({ seriesId, chapterNumber }) => {
+  const user = getAuthData();
+  const { data, error } = await supabase
+    .from('chapters')
+    .update({ unlocked: false })
+    .eq('series_id', seriesId)
+    .eq('chapter_number', chapterNumber)
+    .select('id')
+    .single();
+  if (error) {
+    throw APIError.internal("failed to lock chapter").withDetails({ error: error.message });
+  }
+  return { chapter: { id: data.id, locked: true } };
+});
+
+export const unlockChapter = api<LockUnlockChapterRequest, LockUnlockChapterResponse>({
+  method: "POST",
+  path: "/supabase/series/:seriesId/chapters/:chapterNumber/unlock",
+  auth: true,
+}, async ({ seriesId, chapterNumber }) => {
+  const user = getAuthData();
+  const { data, error } = await supabase
+    .from('chapters')
+    .update({ unlocked: true })
+    .eq('series_id', seriesId)
+    .eq('chapter_number', chapterNumber)
+    .select('id')
+    .single();
+  if (error) {
+    throw APIError.internal("failed to unlock chapter").withDetails({ error: error.message });
+  }
+  return { chapter: { id: data.id, locked: false } };
+});
+
+// --- Card endpoints ---
+interface AddCardRequest {
+  chapterId: string;
+  word: string;
+  definition: string;
+  romanization?: string;
+  example?: string;
+}
+interface AddCardResponse {
+  newWord: any;
+}
+export const addCard = api<AddCardRequest, AddCardResponse>({
+  method: "POST",
+  path: "/supabase/chapters/:chapterId/cards",
+  auth: true,
+}, async ({ chapterId, word, definition, romanization, example }) => {
+  const user = getAuthData();
+  // Insert word if not exists
+    const { data: newWord, error: createWordError } = await supabase
+      .from('words')
+      .insert({ word, chapter_id: chapterId, definition, romanization, example })
+      .select('id')
+      .single();
+    if (createWordError) {
+      throw APIError.internal("failed to create word").withDetails({ error: createWordError.message });
+    }
+  return { newWord };
+});
+
+interface EditCardRequest {
+  cardId: string;
+  word?: string;
+  definition?: string;
+  romanization?: string;
+  example?: string;
+}
+interface EditCardResponse {
+  card: any;
+}
+export const editCard = api<EditCardRequest, EditCardResponse>({
+  method: "PATCH",
+  path: "/supabase/cards/:cardId",
+  auth: true,
+}, async ({ cardId, word, definition, romanization, example }) => {
+  const user = getAuthData();
+  const { data: updatedWord, error: updateError } = await supabase
+    .from('words')
+    .update({ word, definition, romanization, example })
+    .eq('id', cardId)
+    .select('*')
+    .single();
+  if (updateError) {
+    throw APIError.internal("failed to update card").withDetails({ error: updateError.message });
+  }
+  return { card: updatedWord };
+});
+
+interface DeleteCardRequest {
+  cardId: string;
+}
+interface DeleteCardResponse {
+  success: boolean;
+}
+export const deleteCard = api<DeleteCardRequest, DeleteCardResponse>({
+  method: "DELETE",
+  path: "/supabase/cards/:cardId",
+  auth: true,
+}, async ({ cardId }) => {
+  const user = getAuthData();
+  // Remove the link from chapter_words
+  const { error } = await supabase
+    .from('words')
+    .delete()
+    .eq('id', cardId);
+  if (error) {
+    throw APIError.internal("failed to delete card").withDetails({ error: error.message });
+  }
+  return { success: true };
+});
+
+interface ListCardsRequest {
+  chapterId: string;
+}
+interface ListCardsResponse {
+  cards: Array<any>;
+}
+export const listCards = api<ListCardsRequest, ListCardsResponse>({
+  method: "GET",
+  path: "/supabase/chapters/:chapterId/cards",
+  auth: true,
+}, async ({ chapterId }) => {
+  const user = getAuthData();
+  const { data, error } = await supabase
+    .from('words')
+    .select('id, chapter_id, word, definition, romanization, example, created_at')
+    .eq('chapter_id', chapterId);
+  if (error) {
+    throw APIError.internal("failed to list cards").withDetails({ error: error.message });
+  }
+  const cards = (data || []).map((cw: any) => ({
+    id: cw.id,
+    word: cw.words?.word,
+    definition: cw.words?.definition,
+    romanization: cw.words?.romanization,
+    example: cw.words?.example,
+    createdAt: cw.created_at,
+  }));
+  return { cards };
+});
+
+// --- User endpoints ---
+interface CreateUserRequest {
+  username: string;
+  guest?: boolean;
+  email?: string;
+  password?: string;
+  avatar?: string;
+}
+interface CreateUserResponse {
+  user: any;
+}
+export const createUser = api<CreateUserRequest, CreateUserResponse>({
+  method: "POST",
+  path: "/supabase/users",
+  auth: true,
+}, async ({ username, guest, email, password, avatar }) => {
+  const user = getAuthData();
+  const { data, error } = await supabase
+    .from('users')
+    .insert({ username, guest, email, password, avatar })
+    .select('*')
+    .single();
+  if (error) {
+    throw APIError.internal("failed to create user").withDetails({ error: error.message });
+  }
+  return { user: data };
+});
+
+interface LoginUserRequest {
+  username: string;
+}
+interface LoginUserResponse {
+  user: any;
+}
+export const loginUser = api<LoginUserRequest, LoginUserResponse>({
+  method: "POST",
+  path: "/supabase/users/login",
+  auth: true,
+}, async ({ username }) => {
+  const { data, error } = await supabase
+    .from('users')
+    .select('*')
+    .eq('username', username)
+    .maybeSingle();
+  if (error || !data) {
+    throw APIError.internal("failed to login user").withDetails({ error: error?.message });
+  }
+  return { user: data };
+});
+
+interface UserProgressRequest {
+  userId: string;
+}
+interface UserProgressResponse {
+  progress: any;
+}
+export const userProgress = api<UserProgressRequest, UserProgressResponse>({
+  method: "GET",
+  path: "/supabase/users/:userId/progress",
+  auth: true,
+}, async ({ userId }) => {
+  // Example: fetch study history, streak, most studied series
+  const { data, error } = await supabase
+    .from('study_history')
+    .select('*')
+    .eq('user_id', userId);
+  if (error) {
+    throw APIError.internal("failed to get user progress").withDetails({ error: error.message });
+  }
+  // TODO: Aggregate streak, most studied series, etc.
+  return { progress: data };
+});
+
+interface ResetUserRequest {
+  userId: string;
+}
+interface ResetUserResponse {
+  success: boolean;
+}
+export const resetUser = api<ResetUserRequest, ResetUserResponse>({
+  method: "POST",
+  path: "/supabase/users/:userId/reset",
+  auth: true,
+}, async ({ userId }) => {
+  // Example: delete study history for user
+  const { error } = await supabase
+    .from('study_history')
+    .delete()
+    .eq('user_id', userId);
+  if (error) {
+    throw APIError.internal("failed to reset user").withDetails({ error: error.message });
+  }
+  return { success: true };
+});
+
+// --- Deck endpoints ---
+interface ListDecksRequest {
+  genre?: string;
+  difficulty?: string;
+  trending?: boolean;
+  new?: boolean;
+  status?: string;
+}
+interface ListDecksResponse {
+  decks: Array<any>;
+}
+export const listDecks = api<ListDecksRequest, ListDecksResponse>({
+  method: "GET",
+  path: "/supabase/decks",
+  auth: true,
+}, async ({ genre, difficulty, trending, new: isNew, status }) => {
+  const user = getAuthData();
+  let query = supabase.from('decks').select('*');
+  if (genre) query = query.eq('genre', genre);
+  if (difficulty) query = query.eq('difficulty', difficulty);
+  if (status) query = query.eq('status', status);
+  // TODO: Implement trending/new logic if needed
+  const { data, error } = await query;
+  if (error) {
+    throw APIError.internal("failed to list decks").withDetails({ error: error.message });
+  }
+  return { decks: data || [] };
+});
+
+interface FeatureDeckRequest {
+  deckId: string;
+  badge: string;
+}
+interface FeatureDeckResponse {
+  deck: any;
+}
+export const featureDeck = api<FeatureDeckRequest, FeatureDeckResponse>({
+  method: "POST",
+  path: "/supabase/decks/:deckId/feature",
+  auth: true,
+}, async ({ deckId, badge }) => {
+  const user = getAuthData();
+  // Assume 'featured' is a string[] column
+  const { data, error } = await supabase
+    .from('decks')
+    .update({ featured: [badge] })
+    .eq('id', deckId)
+    .select('*')
+    .single();
+  if (error) {
+    throw APIError.internal("failed to feature deck").withDetails({ error: error.message });
+  }
+  return { deck: data };
+});
+
+interface PreviewDeckRequest {
+  deckId: string;
+}
+interface PreviewDeckResponse {
+  deck: any;
+  cards: Array<any>;
+}
+export const previewDeck = api<PreviewDeckRequest, PreviewDeckResponse>({
+  method: "GET",
+  path: "/supabase/decks/:deckId/preview",
+  auth: true,
+}, async ({ deckId }) => {
+  const user = getAuthData();
+  const { data: deck, error: deckError } = await supabase
+    .from('decks')
+    .select('*')
+    .eq('id', deckId)
+    .maybeSingle();
+  if (deckError || !deck) {
+    throw APIError.internal("failed to get deck").withDetails({ error: deckError?.message });
+  }
+  const { data: cards, error: cardsError } = await supabase
+    .from('words')
+    .select('*')
+    .eq('deck_id', deckId);
+  if (cardsError) {
+    throw APIError.internal("failed to get deck cards").withDetails({ error: cardsError.message });
+  }
+  return { deck, cards: cards || [] };
+});
+
+// --- Dev endpoints ---
+interface DevSeedResponse {
+  success: boolean;
+  message: string;
+}
+export const devSeed = api<{}, DevSeedResponse>({
+  method: "POST",
+  path: "/supabase/dev/seed",
+  auth: true,
+}, async () => {
+  // TODO: Implement real seeding logic
+  return { success: true, message: "Database seeded with test data (stub)." };
+});
+
+interface DevResetResponse {
+  success: boolean;
+  message: string;
+}
+export const devReset = api<{}, DevResetResponse>({
+  method: "POST",
+  path: "/supabase/dev/reset",
+  auth: true,
+}, async () => {
+  // TODO: Implement real reset logic
+  return { success: true, message: "Database reset and reseeded (stub)." };
+});
+
+interface DevExportResponse {
+  success: boolean;
+  data: any;
+}
+export const devExport = api<{}, DevExportResponse>({
+  method: "GET",
+  path: "/supabase/dev/export",
+  auth: true,
+}, async () => {
+  // TODO: Implement real export logic
+  return { success: true, data: {} };
+});
+
+interface DevWatchResponse {
+  success: boolean;
+  message: string;
+}
+export const devWatch = api<{}, DevWatchResponse>({
+  method: "POST",
+  path: "/supabase/dev/watch",
+  auth: true,
+}, async () => {
+  // TODO: Implement real watch logic
+  return { success: true, message: "Watch started (stub)." };
 }); 
