@@ -43,8 +43,6 @@ export const checkChapter = api<CheckChapterRequest, CheckChapterResponse>({
   path: "/supabase/chapters/check",
   expose: true,
 }, async ({ seriesName, chapterNumber }) => {
-  // Get authenticated user (if needed)
-  const user = getAuthData();
   const { data, error } = await supabase
     .from('chapters')
     .select(`
@@ -92,7 +90,6 @@ export const getChapterWords = api<GetChapterWordsRequest, GetChapterWordsRespon
   path: "/supabase/chapters/:id/words",
   expose: true,
 }, async ({ id }) => {
-  const user = getAuthData();
   const { data, error } = await supabase
     .from('chapter_words')
     .select(`
@@ -147,7 +144,6 @@ export const createChapter = api<CreateChapterRequest, CreateChapterResponse>({
   path: "/supabase/chapters",
   expose: true,
 }, async ({ seriesName, chapterNumber, words }) => {
-  const user = getAuthData();
   // First, get or create series
   let { data: series, error: seriesError } = await supabase
     .from('series')
@@ -242,7 +238,6 @@ export const getVocabulary = api<{}, GetVocabularyResponse>({
   path: "/supabase/vocabulary",
   expose: true,
 }, async () => {
-  const user = getAuthData();
   const { data, error } = await supabase.from('words').select('*').order('created_at', { ascending: false });
   if (error) {
     throw APIError.internal("failed to fetch vocabulary").withDetails({ error: error.message });
@@ -261,7 +256,6 @@ export const searchVocabulary = api<SearchVocabularyRequest, SearchVocabularyRes
   path: "/supabase/vocabulary/search",
   expose: true,
 }, async ({ query }) => {
-  const user = getAuthData();
   let supaQuery = supabase
     .from('words')
     .select('*')
@@ -285,7 +279,6 @@ export const filterVocabularyBySeries = api<FilterVocabularyBySeriesRequest, Fil
   path: "/supabase/vocabulary/filter/series/:seriesName",
   expose: true,
 }, async ({ seriesName }) => {
-  const user = getAuthData();
   const { data, error } = await supabase
     .from('chapter_words')
     .select(`words(*), chapter_id, chapters!inner(series_id), chapters!inner(series!inner(name))`)
@@ -310,7 +303,6 @@ export const filterVocabularyByChapter = api<FilterVocabularyByChapterRequest, F
   path: "/supabase/vocabulary/filter/chapter/:seriesName/:chapterNumber",
   expose: true,
 }, async ({ seriesName, chapterNumber }) => {
-  const user = getAuthData();
   const { data, error } = await supabase
     .from('chapter_words')
     .select(`words(*), chapter_id, chapters!inner(chapter_number, series!inner(name))`)
@@ -333,7 +325,6 @@ export const getRetention = api<{}, GetRetentionResponse>({
   path: "/supabase/analytics/retention",
   expose: true,
 }, async () => {
-  const user = getAuthData();
   const { data, error } = await supabase
     .from('study_history')
     .select('created_at, word_id')
@@ -359,7 +350,6 @@ export const getStudyPatterns = api<{}, GetStudyPatternsResponse>({
   path: "/supabase/analytics/patterns",
   expose: true,
 }, async () => {
-  const user = getAuthData();
   const { data, error } = await supabase
     .from('study_sessions')
     .select('created_at, session_duration')
@@ -390,7 +380,6 @@ export const getDifficultyAnalysis = api<{}, GetDifficultyAnalysisResponse>({
   path: "/supabase/analytics/difficulty",
   expose: true,
 }, async () => {
-  const user = getAuthData();
   const { data, error } = await supabase
     .from('study_history')
     .select('grade');
@@ -413,7 +402,6 @@ export const getPerformanceStats = api<{}, GetPerformanceStatsResponse>({
   path: "/supabase/analytics/performance",
   expose: true,
 }, async () => {
-  const user = getAuthData();
   const { data, error } = await supabase
     .from('study_progress')
     .select('state, due_date');
@@ -443,7 +431,6 @@ export const listSeries = api<{}, ListSeriesResponse>({
   path: "/supabase/series",
   expose: true,
 }, async () => {
-  const user = getAuthData();
   const { data, error } = await supabase
     .from('series')
     .select('id, name, created_at')
@@ -465,7 +452,6 @@ export const createSeries = api<CreateSeriesRequest, CreateSeriesResponse>({
   path: "/supabase/series",
   expose: true,
 }, async ({ name }) => {
-  const user = getAuthData();
   const { data, error } = await supabase
     .from('series')
     .insert({ name })
@@ -488,7 +474,6 @@ export const searchSeries = api<SearchSeriesRequest, SearchSeriesResponse>({
   path: "/supabase/series/search",
   expose: true,
 }, async ({ query }) => {
-  const user = getAuthData();
   const { data, error } = await supabase
     .from('series')
     .select('id, name, created_at')
@@ -522,7 +507,6 @@ export const listChapters = api<ListChaptersRequest, ListChaptersResponse>({
   path: "/supabase/series/:seriesId/chapters",
   expose: true,
 }, async ({ seriesId }) => {
-  const user = getAuthData();
   const { data, error } = await supabase
     .from('chapters')
     .select('id, series_id, chapter_number, title, source_file, private, difficulty, unlocked, created_at')
@@ -558,7 +542,6 @@ export const lockChapter = api<LockUnlockChapterRequest, LockUnlockChapterRespon
   path: "/supabase/series/:seriesId/chapters/:chapterNumber/lock",
   expose: true,
 }, async ({ seriesId, chapterNumber }) => {
-  const user = getAuthData();
   const { data, error } = await supabase
     .from('chapters')
     .update({ unlocked: false })
@@ -577,7 +560,6 @@ export const unlockChapter = api<LockUnlockChapterRequest, LockUnlockChapterResp
   path: "/supabase/series/:seriesId/chapters/:chapterNumber/unlock",
   expose: true,
 }, async ({ seriesId, chapterNumber }) => {
-  const user = getAuthData();
   const { data, error } = await supabase
     .from('chapters')
     .update({ unlocked: true })
@@ -607,7 +589,6 @@ export const addCard = api<AddCardRequest, AddCardResponse>({
   path: "/supabase/chapters/:chapterId/cards",
   expose: true,
 }, async ({ chapterId, word, definition, romanization, example }) => {
-  const user = getAuthData();
   // Insert word if not exists
     const { data: newWord, error: createWordError } = await supabase
       .from('words')
@@ -635,7 +616,6 @@ export const editCard = api<EditCardRequest, EditCardResponse>({
   path: "/supabase/cards/:cardId",
   expose: true,
 }, async ({ cardId, word, definition, romanization, example }) => {
-  const user = getAuthData();
   const { data: updatedWord, error: updateError } = await supabase
     .from('words')
     .update({ word, definition, romanization, example })
@@ -659,7 +639,6 @@ export const deleteCard = api<DeleteCardRequest, DeleteCardResponse>({
   path: "/supabase/cards/:cardId",
   expose: true,
 }, async ({ cardId }) => {
-  const user = getAuthData();
   // Remove the link from chapter_words
   const { error } = await supabase
     .from('words')
@@ -682,7 +661,6 @@ export const listCards = api<ListCardsRequest, ListCardsResponse>({
   path: "/supabase/chapters/:chapterId/cards",
   expose: true,
 }, async ({ chapterId }) => {
-  const user = getAuthData();
   const { data, error } = await supabase
     .from('words')
     .select('id, chapter_id, word, definition, romanization, example, created_at')
@@ -717,7 +695,6 @@ export const createUser = api<CreateUserRequest, CreateUserResponse>({
   path: "/supabase/users",
   expose: true,
 }, async ({ username, guest, email, password, avatar }) => {
-  const user = getAuthData();
   const { data, error } = await supabase
     .from('users')
     .insert({ username, guest, email, password, avatar })
@@ -812,7 +789,6 @@ export const listDecks = api<ListDecksRequest, ListDecksResponse>({
   path: "/supabase/decks",
   expose: true,
 }, async ({ genre, difficulty, trending, new: isNew, status }) => {
-  const user = getAuthData();
   let query = supabase.from('decks').select('*');
   if (genre) query = query.eq('genre', genre);
   if (difficulty) query = query.eq('difficulty', difficulty);
@@ -837,7 +813,6 @@ export const featureDeck = api<FeatureDeckRequest, FeatureDeckResponse>({
   path: "/supabase/decks/:deckId/feature",
   expose: true,
 }, async ({ deckId, badge }) => {
-  const user = getAuthData();
   // Assume 'featured' is a string[] column
   const { data, error } = await supabase
     .from('decks')
@@ -863,7 +838,6 @@ export const previewDeck = api<PreviewDeckRequest, PreviewDeckResponse>({
   path: "/supabase/decks/:deckId/preview",
   expose: true,
 }, async ({ deckId }) => {
-  const user = getAuthData();
   const { data: deck, error: deckError } = await supabase
     .from('decks')
     .select('*')
