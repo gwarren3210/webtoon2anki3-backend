@@ -607,19 +607,65 @@ export const addCard = api<AddCardRequest, AddCardResponse>({
   path: "/supabase/chapters/:chapterId/cards",
   expose: true,
 }, async ({ chapterId, word, definition, romanization, example }) => {
-  // Insert word if not exists
+  // Step 1: Find or create the word in the 'words' table.
+  let { data: wordData, error: wordError } = await supabase
+    .from('words')
+    .select('id')
+    .eq('word', word)
+    .eq('definition', definition)
+    .maybeSingle();
+
+  if (wordError) {
+      throw APIError.internal("Failed to check for existing word.").withDetails({ error: wordError.message });
+  }
+
+  let wordId: string;
+
+  if (wordData) {
+    wordId = wordData.id;
+  } else {
     const { data: newWord, error: createWordError } = await supabase
       .from('words')
-      .insert({ word, chapter_id: chapterId, definition, romanization, example })
+      .insert({ word, definition, example })
       .select('id')
       .single();
+
     if (createWordError) {
-      throw APIError.internal("failed to create word").withDetails({ error: createWordError.message });
+      throw APIError.internal("Failed to create new word.").withDetails({ error: createWordError.message });
     }
     if (!newWord) {
-        throw APIError.internal("Failed to create card, check RLS policy.");
+        throw APIError.internal("Failed to create new word, check RLS policy.");
     }
-  return { newWord };
+    wordId = newWord.id;
+  }
+
+  // Step 2: Link the word to the chapter in 'chapter_words'.
+  const { error: linkError } = await supabase
+    .from('chapter_words')
+    .insert({
+      chapter_id: chapterId,
+      word_id: wordId,
+      importance_score: 0, // Default importance score
+    });
+
+  if (linkError) {
+    // This can fail if the link already exists (e.g., due to a unique constraint).
+    // For now, we'll treat that as an error.
+    throw APIError.internal("Failed to link word to chapter. It may already exist in this chapter.").withDetails({ error: linkError.message });
+  }
+
+  // Step 3: Return the created/found word.
+  const { data: finalWord, error: finalWordError } = await supabase
+  .from('words')
+  .select('*')
+  .eq('id', wordId)
+  .single();
+
+  if (finalWordError || !finalWord) {
+      throw APIError.internal("Could not retrieve the created/found word.");
+  }
+
+  return { newWord: finalWord };
 });
 
 interface EditCardRequest {
@@ -686,20 +732,22 @@ export const listCards = api<ListCardsRequest, ListCardsResponse>({
   expose: true,
 }, async ({ chapterId }) => {
   const { data, error } = await supabase
-    .from('words')
-    .select('id, chapter_id, word, definition, romanization, example, created_at')
+    .from('chapter_words')
+    .select(`
+      words (
+        id,
+        word,
+        definition,
+        created_at
+      )
+    `)
     .eq('chapter_id', chapterId);
+
   if (error) {
-    throw APIError.internal("failed to list cards").withDetails({ error: error.message });
+    throw APIError.internal("failed to list cards for chapter").withDetails({ error: error.message });
   }
-  const cards = (data || []).map((cw: any) => ({
-    id: cw.id,
-    word: cw.words?.word,
-    definition: cw.words?.definition,
-    romanization: cw.words?.romanization,
-    example: cw.words?.example,
-    createdAt: cw.created_at,
-  }));
+
+  const cards = (data || []).map(item => item.words).filter(Boolean);
   return { cards };
 });
 
