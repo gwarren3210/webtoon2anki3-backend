@@ -682,7 +682,8 @@ export const editCard = api<EditCardRequest, EditCardResponse>({
   method: "PATCH",
   path: "/supabase/cards/:cardId",
   expose: true,
-}, async ({ cardId, word, definition, romanization, example }) => {
+}, async ({ cardId, word, definition }) => {
+  console.log({ cardId, word, definition });
   const { data: updatedWord, error: updateError } = await supabase
     .from('words')
     .update({ word, definition })
