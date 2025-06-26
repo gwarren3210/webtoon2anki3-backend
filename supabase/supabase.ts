@@ -41,7 +41,7 @@ interface CheckChapterResponse {
 export const checkChapter = api<CheckChapterRequest, CheckChapterResponse>({
   method: "POST",
   path: "/supabase/chapters/check",
-  auth: true,
+  
 }, async ({ seriesName, chapterNumber }) => {
   // Get authenticated user (if needed)
   const user = getAuthData();
@@ -90,7 +90,7 @@ interface GetChapterWordsResponse {
 export const getChapterWords = api<GetChapterWordsRequest, GetChapterWordsResponse>({
   method: "GET",
   path: "/supabase/chapters/:id/words",
-  auth: true,
+  
 }, async ({ id }) => {
   const user = getAuthData();
   const { data, error } = await supabase
@@ -145,7 +145,7 @@ interface CreateChapterResponse {
 export const createChapter = api<CreateChapterRequest, CreateChapterResponse>({
   method: "POST",
   path: "/supabase/chapters",
-  auth: true,
+  
 }, async ({ seriesName, chapterNumber, words }) => {
   const user = getAuthData();
   // First, get or create series
@@ -240,7 +240,7 @@ interface GetVocabularyResponse {
 export const getVocabulary = api<{}, GetVocabularyResponse>({
   method: "GET",
   path: "/supabase/vocabulary",
-  auth: true,
+  
 }, async () => {
   const user = getAuthData();
   const { data, error } = await supabase.from('words').select('*').order('created_at', { ascending: false });
@@ -259,7 +259,7 @@ interface SearchVocabularyResponse {
 export const searchVocabulary = api<SearchVocabularyRequest, SearchVocabularyResponse>({
   method: "GET",
   path: "/supabase/vocabulary/search",
-  auth: true,
+  
 }, async ({ query }) => {
   const user = getAuthData();
   let supaQuery = supabase
@@ -283,7 +283,7 @@ interface FilterVocabularyBySeriesResponse {
 export const filterVocabularyBySeries = api<FilterVocabularyBySeriesRequest, FilterVocabularyBySeriesResponse>({
   method: "GET",
   path: "/supabase/vocabulary/filter/series/:seriesName",
-  auth: true,
+  
 }, async ({ seriesName }) => {
   const user = getAuthData();
   const { data, error } = await supabase
@@ -308,7 +308,7 @@ interface FilterVocabularyByChapterResponse {
 export const filterVocabularyByChapter = api<FilterVocabularyByChapterRequest, FilterVocabularyByChapterResponse>({
   method: "GET",
   path: "/supabase/vocabulary/filter/chapter/:seriesName/:chapterNumber",
-  auth: true,
+  
 }, async ({ seriesName, chapterNumber }) => {
   const user = getAuthData();
   const { data, error } = await supabase
@@ -331,7 +331,7 @@ interface GetRetentionResponse {
 export const getRetention = api<{}, GetRetentionResponse>({
   method: "GET",
   path: "/supabase/analytics/retention",
-  auth: true,
+  
 }, async () => {
   const user = getAuthData();
   const { data, error } = await supabase
@@ -357,7 +357,7 @@ interface GetStudyPatternsResponse {
 export const getStudyPatterns = api<{}, GetStudyPatternsResponse>({
   method: "GET",
   path: "/supabase/analytics/patterns",
-  auth: true,
+  
 }, async () => {
   const user = getAuthData();
   const { data, error } = await supabase
@@ -388,7 +388,7 @@ interface GetDifficultyAnalysisResponse {
 export const getDifficultyAnalysis = api<{}, GetDifficultyAnalysisResponse>({
   method: "GET",
   path: "/supabase/analytics/difficulty",
-  auth: true,
+  
 }, async () => {
   const user = getAuthData();
   const { data, error } = await supabase
@@ -411,7 +411,7 @@ interface GetPerformanceStatsResponse {
 export const getPerformanceStats = api<{}, GetPerformanceStatsResponse>({
   method: "GET",
   path: "/supabase/analytics/performance",
-  auth: true,
+  
 }, async () => {
   const user = getAuthData();
   const { data, error } = await supabase
@@ -441,7 +441,7 @@ interface ListSeriesResponse {
 export const listSeries = api<{}, ListSeriesResponse>({
   method: "GET",
   path: "/supabase/series",
-  auth: true,
+  
 }, async () => {
   const user = getAuthData();
   const { data, error } = await supabase
@@ -463,7 +463,7 @@ interface CreateSeriesResponse {
 export const createSeries = api<CreateSeriesRequest, CreateSeriesResponse>({
   method: "POST",
   path: "/supabase/series",
-  auth: true,
+  
 }, async ({ name }) => {
   const user = getAuthData();
   const { data, error } = await supabase
@@ -486,7 +486,7 @@ interface SearchSeriesResponse {
 export const searchSeries = api<SearchSeriesRequest, SearchSeriesResponse>({
   method: "GET",
   path: "/supabase/series/search",
-  auth: true,
+  
 }, async ({ query }) => {
   const user = getAuthData();
   const { data, error } = await supabase
@@ -520,7 +520,7 @@ interface ListChaptersResponse {
 export const listChapters = api<ListChaptersRequest, ListChaptersResponse>({
   method: "GET",
   path: "/supabase/series/:seriesId/chapters",
-  auth: true,
+  
 }, async ({ seriesId }) => {
   const user = getAuthData();
   const { data, error } = await supabase
@@ -556,7 +556,7 @@ interface LockUnlockChapterResponse {
 export const lockChapter = api<LockUnlockChapterRequest, LockUnlockChapterResponse>({
   method: "POST",
   path: "/supabase/series/:seriesId/chapters/:chapterNumber/lock",
-  auth: true,
+  
 }, async ({ seriesId, chapterNumber }) => {
   const user = getAuthData();
   const { data, error } = await supabase
@@ -575,7 +575,7 @@ export const lockChapter = api<LockUnlockChapterRequest, LockUnlockChapterRespon
 export const unlockChapter = api<LockUnlockChapterRequest, LockUnlockChapterResponse>({
   method: "POST",
   path: "/supabase/series/:seriesId/chapters/:chapterNumber/unlock",
-  auth: true,
+  
 }, async ({ seriesId, chapterNumber }) => {
   const user = getAuthData();
   const { data, error } = await supabase
@@ -605,7 +605,7 @@ interface AddCardResponse {
 export const addCard = api<AddCardRequest, AddCardResponse>({
   method: "POST",
   path: "/supabase/chapters/:chapterId/cards",
-  auth: true,
+  
 }, async ({ chapterId, word, definition, romanization, example }) => {
   const user = getAuthData();
   // Insert word if not exists
@@ -633,7 +633,7 @@ interface EditCardResponse {
 export const editCard = api<EditCardRequest, EditCardResponse>({
   method: "PATCH",
   path: "/supabase/cards/:cardId",
-  auth: true,
+  
 }, async ({ cardId, word, definition, romanization, example }) => {
   const user = getAuthData();
   const { data: updatedWord, error: updateError } = await supabase
@@ -657,7 +657,7 @@ interface DeleteCardResponse {
 export const deleteCard = api<DeleteCardRequest, DeleteCardResponse>({
   method: "DELETE",
   path: "/supabase/cards/:cardId",
-  auth: true,
+  
 }, async ({ cardId }) => {
   const user = getAuthData();
   // Remove the link from chapter_words
@@ -680,7 +680,7 @@ interface ListCardsResponse {
 export const listCards = api<ListCardsRequest, ListCardsResponse>({
   method: "GET",
   path: "/supabase/chapters/:chapterId/cards",
-  auth: true,
+  
 }, async ({ chapterId }) => {
   const user = getAuthData();
   const { data, error } = await supabase
@@ -715,7 +715,7 @@ interface CreateUserResponse {
 export const createUser = api<CreateUserRequest, CreateUserResponse>({
   method: "POST",
   path: "/supabase/users",
-  auth: true,
+  
 }, async ({ username, guest, email, password, avatar }) => {
   const user = getAuthData();
   const { data, error } = await supabase
@@ -738,7 +738,7 @@ interface LoginUserResponse {
 export const loginUser = api<LoginUserRequest, LoginUserResponse>({
   method: "POST",
   path: "/supabase/users/login",
-  auth: true,
+  
 }, async ({ username }) => {
   const { data, error } = await supabase
     .from('users')
@@ -760,7 +760,7 @@ interface UserProgressResponse {
 export const userProgress = api<UserProgressRequest, UserProgressResponse>({
   method: "GET",
   path: "/supabase/users/:userId/progress",
-  auth: true,
+  
 }, async ({ userId }) => {
   // Example: fetch study history, streak, most studied series
   const { data, error } = await supabase
@@ -783,7 +783,7 @@ interface ResetUserResponse {
 export const resetUser = api<ResetUserRequest, ResetUserResponse>({
   method: "POST",
   path: "/supabase/users/:userId/reset",
-  auth: true,
+  
 }, async ({ userId }) => {
   // Example: delete study history for user
   const { error } = await supabase
@@ -810,7 +810,7 @@ interface ListDecksResponse {
 export const listDecks = api<ListDecksRequest, ListDecksResponse>({
   method: "GET",
   path: "/supabase/decks",
-  auth: true,
+  
 }, async ({ genre, difficulty, trending, new: isNew, status }) => {
   const user = getAuthData();
   let query = supabase.from('decks').select('*');
@@ -835,7 +835,7 @@ interface FeatureDeckResponse {
 export const featureDeck = api<FeatureDeckRequest, FeatureDeckResponse>({
   method: "POST",
   path: "/supabase/decks/:deckId/feature",
-  auth: true,
+  
 }, async ({ deckId, badge }) => {
   const user = getAuthData();
   // Assume 'featured' is a string[] column
@@ -861,7 +861,7 @@ interface PreviewDeckResponse {
 export const previewDeck = api<PreviewDeckRequest, PreviewDeckResponse>({
   method: "GET",
   path: "/supabase/decks/:deckId/preview",
-  auth: true,
+  
 }, async ({ deckId }) => {
   const user = getAuthData();
   const { data: deck, error: deckError } = await supabase
@@ -890,7 +890,7 @@ interface DevSeedResponse {
 export const devSeed = api<{}, DevSeedResponse>({
   method: "POST",
   path: "/supabase/dev/seed",
-  auth: true,
+  
 }, async () => {
   // TODO: Implement real seeding logic
   return { success: true, message: "Database seeded with test data (stub)." };
@@ -903,7 +903,7 @@ interface DevResetResponse {
 export const devReset = api<{}, DevResetResponse>({
   method: "POST",
   path: "/supabase/dev/reset",
-  auth: true,
+  
 }, async () => {
   // TODO: Implement real reset logic
   return { success: true, message: "Database reset and reseeded (stub)." };
@@ -916,7 +916,7 @@ interface DevExportResponse {
 export const devExport = api<{}, DevExportResponse>({
   method: "GET",
   path: "/supabase/dev/export",
-  auth: true,
+  
 }, async () => {
   // TODO: Implement real export logic
   return { success: true, data: {} };
@@ -929,7 +929,7 @@ interface DevWatchResponse {
 export const devWatch = api<{}, DevWatchResponse>({
   method: "POST",
   path: "/supabase/dev/watch",
-  auth: true,
+  
 }, async () => {
   // TODO: Implement real watch logic
   return { success: true, message: "Watch started (stub)." };
