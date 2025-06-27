@@ -2,6 +2,12 @@ import { api, APIError, Header, Query } from "encore.dev/api";
 import { authHandler } from "./auth";
 import { getAuthData } from "~encore/auth";
 import { supabase } from "./client";
+import {
+  startSession,
+  nextCard,
+  gradeCard,
+  quitSession
+} from "./studySession/index";
 
 // ===================
 // API Definitions
@@ -866,7 +872,7 @@ export const listDecks = api<ListDecksRequest, ListDecksResponse>({
   path: "/supabase/decks",
   expose: true,
 }, async ({ genre, difficulty, trending, new: isNew, status }) => {
-  let query = supabase.from('decks').select('*');
+  //let query = supabase.from('decks').select('*');
   // TODO: Implement trending/new logic if needed
   const { data, error } = await supabase
       .from('decks')
@@ -1132,4 +1138,60 @@ export const devWatch = api<{}, DevWatchResponse>({
 }, async () => {
   // TODO: Implement real watch logic
   return { success: true, message: "Watch started (stub)." };
+});
+
+/**
+ * Starts a new study session for a user and deck.
+ * @route POST /study/session/start
+ * @body { userId: string, deckId: string }
+ * @returns { sessionId: string }
+ */
+export const studySessionStart = api<{ userId: string; deckId: string }, { sessionId: string }>({
+  method: "POST",
+  path: "/study/session/start",
+  expose: true,
+}, async (req) => {
+  return await startSession(req);
+});
+
+/**
+ * Gets the next card for the session.
+ * @route POST /study/session/next
+ * @body { sessionId: string }
+ * @returns { card: Card | null, progress: ProgressStats }
+ */
+export const studySessionNext = api<{ sessionId: string }, { card: any; progress: any }>({
+  method: "POST",
+  path: "/study/session/next",
+  expose: true,
+}, async (req) => {
+  return await nextCard(req);
+});
+
+/**
+ * Grades the current card and updates session state.
+ * @route POST /study/session/grade
+ * @body { sessionId: string, cardId: string, grade: number }
+ * @returns { card: Card | null, progress: ProgressStats }
+ */
+export const studySessionGrade = api<{ sessionId: string; cardId: string; grade: number }, { card: any; progress: any }>({
+  method: "POST",
+  path: "/study/session/grade",
+  expose: true,
+}, async (req) => {
+  return await gradeCard(req);
+});
+
+/**
+ * Quits the session and cleans up.
+ * @route POST /study/session/quit
+ * @body { sessionId: string }
+ * @returns { success: boolean }
+ */
+export const studySessionQuit = api<{ sessionId: string }, { success: boolean }>({
+  method: "POST",
+  path: "/study/session/quit",
+  expose: true,
+}, async (req) => {
+  return await quitSession(req);
 }); 
