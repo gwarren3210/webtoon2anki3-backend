@@ -245,7 +245,7 @@ export interface SessionState {
   sessionId: string;
   userId: string;
   deckId: string;
-  queues: SessionQueues;
+  cards: Card[]; // all cards for the session
   progress: ProgressStats;
   currentCard: Card | null;
   createdAt: Date;

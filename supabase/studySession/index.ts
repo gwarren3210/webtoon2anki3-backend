@@ -64,8 +64,8 @@ function selectNextCard(queues: SessionQueues): Card | null {
   return (
     queues.mistakes[0] ||
     queues.learning[0] ||
-    queues.review[0] ||
     queues.new[0] ||
+    queues.review[0] ||
     null
   );
 }
@@ -84,17 +84,14 @@ export async function startSession(req: { userId: string; deckId: string }) {
     .eq('user_id', req.userId);
   if (error) throw new Error('Failed to fetch cards for deck: ' + error.message);
   const cards: Card[] = (rows || []).map(mapDbRowToCard);
-  const queues = initializeQueues(cards);
-  // Pick the first card (learning > review > new)
-  const currentCard = queues.learning[0] || queues.review[0] || queues.new[0] || null;
   const sessionId = uuidv4();
   const session: SessionState = {
     sessionId,
     userId: req.userId,
     deckId: req.deckId,
-    queues,
+    cards, // store all cards
     progress: { reviewed: 0, grades: [] },
-    currentCard,
+    currentCard: null,
     createdAt: new Date(),
     lastActive: new Date(),
   };
@@ -103,7 +100,7 @@ export async function startSession(req: { userId: string; deckId: string }) {
 }
 
 /**
- * Gets the next card for the session.
+ * Gets the next due card for the session.
  * @param req { sessionId: string }
  * @returns { card: Card | null, progress: ProgressStats }
  */
@@ -112,8 +109,11 @@ export async function nextCard(req: { sessionId: string }) {
   if (!session) {
     throw new Error('Session not found or expired. Please start a new session.');
   }
-  // Select next card and update session
-  const next = selectNextCard(session.queues);
+  // Select next due card
+  const now = new Date();
+  const dueCards = session.cards.filter(card => card.studyProgress.nextReviewDate <= now);
+  dueCards.sort((a, b) => a.studyProgress.nextReviewDate.getTime() - b.studyProgress.nextReviewDate.getTime());
+  const next = dueCards[0] || null;
   session.currentCard = next;
   session.lastActive = new Date();
   updateSession(session);
@@ -152,24 +152,19 @@ export async function gradeCard(req: { sessionId: string; cardId: string; grade:
     .eq('word_id', req.cardId)
     .eq('deck_id', session.deckId)
     .eq('user_id', session.userId);
-  // Remove card from its current queue and re-queue as needed
-  (Object.values(session.queues) as Card[][]).forEach((queue) => {
-    const idx = queue.findIndex((c: Card) => c.id === req.cardId);
-    if (idx !== -1) queue.splice(idx, 1);
-  });
-  // Re-queue based on new state
-  if (updatedProgress.state === 'learning') {
-    session.queues.learning.push(session.currentCard);
-  } else if (updatedProgress.state === 'reviewing') {
-    session.queues.review.push(session.currentCard);
-  } else if (updatedProgress.state === 'new') {
-    session.queues.new.push(session.currentCard);
-  } // mistakes queue can be handled with additional logic if needed
+  // Update the card in the session.cards array
+  const idx = session.cards.findIndex((c: Card) => c.id === req.cardId);
+  if (idx !== -1) {
+    session.cards[idx].studyProgress = updatedProgress;
+  }
   // Update session stats
   session.progress.reviewed += 1;
   session.progress.grades.push(req.grade);
-  // Select next card
-  const next = selectNextCard(session.queues);
+  // Select next due card
+  const now = new Date();
+  const dueCards = session.cards.filter(card => card.studyProgress.nextReviewDate <= now);
+  dueCards.sort((a, b) => a.studyProgress.nextReviewDate.getTime() - b.studyProgress.nextReviewDate.getTime());
+  const next = dueCards[0] || null;
   session.currentCard = next;
   session.lastActive = new Date();
   updateSession(session);
