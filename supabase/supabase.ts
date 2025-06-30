@@ -3,11 +3,31 @@ import { authHandler } from "./auth";
 import { getAuthData } from "~encore/auth";
 import { supabase } from "./client";
 import {
-  startSession,
-  nextCard,
-  gradeCard,
-  quitSession
+  startStudySession,
+  gradeCard as gradeCardLogic,
+  endStudySession,
 } from "./studySession/index";
+import { VocabularyWithProgress } from "./studySession/types";
+import { FSRSProgress } from './fsrs/index'
+import { Rating } from './fsrs/types';
+
+/* export interface FSRSProgress {
+  id: string;
+  userId: string;
+  vocabularyId: string;
+  due: Date;
+  stability: number;
+  difficulty: number;
+  elapsed_days: number;
+  scheduled_days: number;
+  reps: number;
+  lapses: number;
+  state: State;
+  last_review?: Date;
+  learning_steps: number;
+  createdAt: Date;
+  updatedAt: Date;
+} */
 
 // ===================
 // API Definitions
@@ -969,7 +989,7 @@ interface CreateDeckRequest {
 }
 interface CreateDeckResponse {
   deck: any;
-  cards: Array<any>; // Each card is a row from deck_words joined with word info
+  cards: Array<any>; // Each card is a row from words table
 }
 export const createDeck = api<CreateDeckRequest, CreateDeckResponse>({
   method: "POST",
@@ -999,16 +1019,19 @@ export const createDeck = api<CreateDeckRequest, CreateDeckResponse>({
   // Get words for the chapter, order by importance_score
   const { data: chapterWords, error: wordsError } = await supabase
     .from('chapter_words')
-    .select('word_id, importance_score')
+    .select('word_id, importance_score, words!inner(*)') // Also fetch the word data
     .eq('chapter_id', chapter.id)
     .order('importance_score', { ascending: false });
   if (wordsError) {
     throw APIError.internal("Failed to get chapter words").withDetails({ error: wordsError.message });
   }
-  let selectedWordIds = chapterWords?.map(w => w.word_id) || [];
+
+  const allWords = chapterWords?.map(cw => (cw as any).words) || [];
+  let selectedWords = allWords;
   if (maxLength && maxLength > 0) {
-    selectedWordIds = selectedWordIds.slice(0, maxLength);
+    selectedWords = selectedWords.slice(0, maxLength);
   }
+
   // Create the deck
   const deckName = name || `${seriesName} Chapter ${chapterNumber}`;
   const { data: deck, error: deckError } = await supabase
@@ -1023,68 +1046,12 @@ export const createDeck = api<CreateDeckRequest, CreateDeckResponse>({
   if (deckError || !deck) {
     throw APIError.internal("Failed to create deck").withDetails({ error: deckError?.message });
   }
-  // For each word, create a deck_words row with initial SRS state
-  const now = new Date().toISOString();
-  const initialSRS = {
-    state: 'new',
-    interval: 0,
-    e_factor: 2.5,
-    consecutive_correct: 0,
-    consecutive_incorrect: 0,
-    total_reviews: 0,
-    next_review_date: now,
-    last_reviewed_date: null,
-    first_seen_date: null,
-    created_at: now,
-    updated_at: now,
-  };
-  for (const wordId of selectedWordIds) {
-    await supabase.from('deck_words').insert({
-      deck_id: deck.id,
-      word_id: wordId,
-      user_id: userId,
-      ...initialSRS
-    });
-  }
-  // Fetch the cards for the deck (join deck_words + words)
-  const { data: cards, error: cardsError } = await supabase
-    .from('deck_words')
-    .select('*, word:words(*)')
-    .eq('deck_id', deck.id)
-    .eq('user_id', userId);
-  if (cardsError) {
-    throw APIError.internal("Failed to fetch deck cards").withDetails({ error: cardsError.message });
-  }
-  return { deck, cards: cards || [] };
-});
 
-// --- Deck Due endpoint (refactored for deck_words join table) ---
-interface DeckDueRequest {
-  deckId: string;
-}
-interface DeckDueResponse {
-  due: Array<any>;
-}
-export const deckDue = api<DeckDueRequest, DeckDueResponse>({
-  method: "GET",
-  path: "/supabase/decks/:deckId/due",
-  expose: true,
-}, async ({ deckId }) => {
-  // Find all cards in the deck for the user, join with words
-  const { data: cards, error: cardsError } = await supabase
-    .from('deck_words')
-    .select('*, word:words(*)')
-    .eq('deck_id', deckId);
-  if (cardsError) {
-    throw APIError.internal("Failed to fetch deck cards").withDetails({ error: cardsError.message });
-  }
-  // Find due cards (based on nextReviewDate)
-  const now = new Date();
-  const dueCards = (cards || []).filter(card => {
-    if (!card.nextReviewDate) return true;
-    return new Date(card.nextReviewDate) <= now;
-  }).sort((a, b) => (new Date(a.nextReviewDate)).valueOf() - (new Date(b.nextReviewDate)).valueOf());
-  return { due: dueCards };
+  // NOTE: This function no longer creates SRS progress records.
+  // FSRS progress will be created on-the-fly when a study session starts.
+  // We also no longer populate the `deck_words` join table as it's part of the legacy SM-2 system.
+
+  return { deck, cards: selectedWords };
 });
 
 // --- Dev endpoints ---
@@ -1140,58 +1107,177 @@ export const devWatch = api<{}, DevWatchResponse>({
   return { success: true, message: "Watch started (stub)." };
 });
 
+// =============================
+// FSRS Study Session Endpoints
+// =============================
+
 /**
  * Starts a new study session for a user and deck.
  * @route POST /study/session/start
  * @body { userId: string, deckId: string }
- * @returns { sessionId: string }
+ * @returns { sessionState: SessionState }
  */
-export const studySessionStart = api<{ userId: string; deckId: string }, { sessionId: string }>({
-  method: "POST",
-  path: "/study/session/start",
-  expose: true,
-}, async (req) => {
-  return await startSession(req);
+export const startStudySessionApi = api<{ userId: string; deckId: string }, { sessionState: any }>({
+    method: "POST",
+    path: "/study/session/start",
+    expose: true,
+}, async ({ userId, deckId }) => {
+    // 1. Find the chapter associated with the deck
+    const { data: deck, error: deckError } = await supabase.from('decks').select('chapter_id').eq('id', deckId).single();
+    if (deckError || !deck) {
+        throw APIError.notFound("Deck not found.");
+    }
+    const chapterId = deck.chapter_id;
+
+    // 2. Get all word IDs and word data from that chapter
+    const { data: chapterWords, error: wordsError } = await supabase
+        .from('chapter_words')
+        .select('word_id, words!inner(id, word, definition, importance_score)')
+        .eq('chapter_id', chapterId);
+
+    if (wordsError) throw APIError.internal("Failed to get chapter words for session").withDetails({ error: wordsError.message });
+    if (!chapterWords) throw APIError.notFound("No words found for this deck's chapter.");
+
+    const wordIds = chapterWords.map(cw => cw.word_id);
+    
+    // 3. Fetch existing FSRS progress for these words for the user
+    const { data: progressData, error: progressError } = await supabase
+        .from('fsrs_progress')
+        .select('*')
+        .eq('user_id', userId)
+        .in('vocabulary_id', wordIds);
+        
+    if (progressError) throw APIError.internal("Failed to get user progress").withDetails({ error: progressError.message });
+    
+    // 4. For any words the user hasn't seen, create a new progress record in the database
+    const progressMap = new Map((progressData || []).map(p => [p.vocabulary_id, p]));
+    const vocabWithProgress: VocabularyWithProgress[] = [];
+    const wordsWithoutProgress = chapterWords.filter(cw => !progressMap.has(cw.word_id));
+
+    if (wordsWithoutProgress.length > 0) {
+        const newProgressRecords = wordsWithoutProgress.map(cw => ({
+            user_id: userId,
+            vocabulary_id: cw.word_id,
+            due: new Date().toISOString(),
+            stability: 0,
+            difficulty: 0,
+            state: 0, // FSRSState.New
+        }));
+
+        const { data: insertedProgress, error: insertError } = await supabase
+            .from('fsrs_progress')
+            .insert(newProgressRecords)
+            .select();
+
+        if (insertError) throw APIError.internal("Failed to create new progress records").withDetails({ error: insertError.message });
+
+        // Add the newly created progress records to our map
+        (insertedProgress || []).forEach(p => progressMap.set(p.vocabulary_id, p));
+    }
+    
+    // 5. Build the final array of vocabulary with their progress
+    for (const cw of chapterWords) {
+        const progress = progressMap.get(cw.word_id);
+        if (progress) { // Should always be true now
+            vocabWithProgress.push({
+                vocabulary: {
+                    id: (cw.words as any).id,
+                    korean: (cw.words as any).word,
+                    english: (cw.words as any).definition,
+                    importanceScore: (cw.words as any).importance_score || 0,
+                },
+                studyProgress: {
+                    ...progress,
+                    due: new Date(progress.due),
+                    last_review: progress.last_review ? new Date(progress.last_review) : undefined,
+                } as FSRSProgress,
+                isDue: new Date(progress.due) <= new Date(),
+                daysUntilReview: Math.max(0, (new Date(progress.due).getTime() - new Date().getTime()) / (1000 * 3600 * 24))
+            });
+        }
+    }
+    
+    // 6. Start the session with the fully populated data
+    const sessionState = startStudySession(userId, deckId, vocabWithProgress);
+    return { sessionState };
 });
 
-/**
- * Gets the next card for the session.
- * @route POST /study/session/next
- * @body { sessionId: string }
- * @returns { card: Card | null, progress: ProgressStats }
- */
-export const studySessionNext = api<{ sessionId: string }, { card: any; progress: any }>({
-  method: "POST",
-  path: "/study/session/next",
-  expose: true,
-}, async (req) => {
-  return await nextCard(req);
-});
 
 /**
- * Grades the current card and updates session state.
+ * Grades the current card and updates session state and database.
  * @route POST /study/session/grade
- * @body { sessionId: string, cardId: string, grade: number }
- * @returns { card: Card | null, progress: ProgressStats }
+ * @body { sessionId: string, rating: Rating }
+ * @returns { sessionState: SessionState }
  */
-export const studySessionGrade = api<{ sessionId: string; cardId: string; grade: number }, { card: any; progress: any }>({
-  method: "POST",
-  path: "/study/session/grade",
-  expose: true,
-}, async (req) => {
-  return await gradeCard(req);
+export const gradeCardApi = api<{ sessionId: string; rating: Rating }, { sessionState: any }>({
+    method: "POST",
+    path: "/study/session/grade",
+    expose: true,
+}, async ({ sessionId, rating }) => {
+    //const { Rating } = await import('ts-fsrs');
+    //const fsrsRating = rating as typeof Rating[keyof typeof Rating];
+
+    // This function now returns all the data we need to persist
+    const { newState, updatedProgress, reviewLog } = gradeCardLogic(sessionId, rating);
+
+    // Persist FSRSProgress to the database
+    const { error: progressError } = await supabase
+        .from('fsrs_progress')
+        .update({
+            due: updatedProgress.due,
+            stability: updatedProgress.stability,
+            difficulty: updatedProgress.difficulty,
+            elapsed_days: updatedProgress.elapsed_days,
+            scheduled_days: updatedProgress.scheduled_days,
+            reps: updatedProgress.reps,
+            lapses: updatedProgress.lapses,
+            state: updatedProgress.state,
+            last_review: updatedProgress.last_review,
+            learning_steps: updatedProgress.learning_steps
+        })
+        .eq('id', updatedProgress.id);
+        
+    if (progressError) {
+        // Log error but don't fail the request, as the session state is updated in memory.
+        console.error("Failed to persist FSRS progress", progressError.message);
+    }
+    
+    // Persist FSRSReviewLog to the database
+    const { error: logError } = await supabase
+        .from('fsrs_review_logs')
+        .insert({
+            progress_id: reviewLog.progressId,
+            user_id: newState.userId, // get userId from the session state
+            rating: reviewLog.rating,
+            state: reviewLog.state,
+            due: reviewLog.due,
+            stability: reviewLog.stability,
+            difficulty: reviewLog.difficulty,
+            elapsed_days: reviewLog.elapsed_days,
+            last_elapsed_days: reviewLog.last_elapsed_days,
+            scheduled_days: reviewLog.scheduled_days,
+            review: reviewLog.review,
+            learning_steps: reviewLog.learning_steps
+        });
+
+    if (logError) {
+        console.error("Failed to persist FSRS review log", logError.message);
+    }
+    
+    return { sessionState: newState };
 });
 
 /**
  * Quits the session and cleans up.
- * @route POST /study/session/quit
+ * @route POST /study/session/end
  * @body { sessionId: string }
  * @returns { success: boolean }
  */
-export const studySessionQuit = api<{ sessionId: string }, { success: boolean }>({
+export const endStudySessionApi = api<{ sessionId: string }, { success: boolean }>({
   method: "POST",
-  path: "/study/session/quit",
+  path: "/study/session/end",
   expose: true,
-}, async (req) => {
-  return await quitSession(req);
+}, async ({ sessionId }) => {
+  endStudySession(sessionId);
+  return { success: true };
 }); 

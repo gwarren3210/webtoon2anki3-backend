@@ -2,7 +2,6 @@ import { api } from "encore.dev/api";
 import { IncomingMessage, ServerResponse } from "http";
 import { processAndGroupOcrResults } from '../services/text-grouper';
 import { getDialogueFromGroupedText } from "../services/text-grouper";
-import { GetDialogueRequest, GetDialogueResponse } from "../services/types";
 
 /**
  * Groups OCR results into text lines based on vertical proximity.
@@ -52,6 +51,30 @@ export const groupTextEndpoint = api.raw(
  * @param request - The request containing grouped text data
  * @returns Array of strings containing only the dialogue text with line breaks
  */
+
+
+
+/**
+ * Encore can't import types from outside of the service. TODO: refactor into one service.
+ */
+export type BoundingBox = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+export type OcrLineResult = {
+  line: string;
+  bbox: BoundingBox;
+};
+
+interface GetDialogueRequest {
+  groupedTextData: OcrLineResult[];
+}
+
+interface GetDialogueResponse {
+  dialogueLines: string[];
+}
 export const getDialogue = api(
     { 
         method: "POST",

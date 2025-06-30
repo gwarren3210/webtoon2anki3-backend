@@ -5,24 +5,13 @@
  * including study progress tracking, session management, and study history.
  */
 
-/**
- * Represents the grade given to a card during study (0-5 scale)
- * Based on the SM-2 algorithm grading system
- */
-export enum SRSGrade {
-  /** Complete blackout - didn't remember at all */
-  BLACKOUT = 0,
-  /** Incorrect response - remembered but got it wrong */
-  INCORRECT = 1,
-  /** Hard response - remembered with difficulty */
-  HARD = 2,
-  /** Good response - remembered with some effort */
-  GOOD = 3,
-  /** Easy response - remembered easily */
-  EASY = 4,
-  /** Perfect response - remembered immediately and easily */
-  PERFECT = 5
-}
+import {
+  FSRSProgress,
+  FSRSState,
+  FSRSRating,
+  FSRSReviewLog,
+  FSRSParameters
+} from '../fsrs';
 
 /**
  * Represents the current state of a vocabulary item in the SRS system
@@ -104,6 +93,7 @@ export interface StudySession {
 
 /**
  * Represents a single study event/answer in the study history
+ * TODO: This should be adapted or replaced by FSRSReviewLog
  */
 export interface StudyHistory {
   /** Unique identifier for the study history record */
@@ -117,7 +107,7 @@ export interface StudyHistory {
   /** Reference to the user */
   userId: string;
   /** Grade given for this review (0-5) */
-  grade: SRSGrade;
+  grade: number; // To be mapped from FSRSRating
   /** Time taken to answer in seconds */
   responseTime?: number;
   /** Previous interval before this review */
@@ -140,6 +130,7 @@ export interface StudyHistory {
 
 /**
  * Represents study statistics for a user
+ * TODO: This needs to be updated to work with FSRS data
  */
 export interface StudyStats {
   /** Total number of cards studied */
@@ -209,7 +200,7 @@ export interface VocabularyWithProgress {
     chapterNumber?: string;
   };
   /** Study progress for this vocabulary item */
-  studyProgress?: StudyProgress;
+  studyProgress?: FSRSProgress;
   /** Whether this card is due for review */
   isDue: boolean;
   /** Days until next review (negative if overdue) */
@@ -222,7 +213,7 @@ export interface Card {
   korean: string;
   english: string;
   importanceScore: number;
-  studyProgress: StudyProgress;
+  studyProgress: FSRSProgress;
 }
 
 // Queues for session state

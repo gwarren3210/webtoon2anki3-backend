@@ -1,4 +1,162 @@
 /**
+ * FSRS Study Session Manager
+ *
+ * This file orchestrates an active study session. It uses the CardScheduler to
+ * build a deck, manages the queue of cards to be reviewed, processes user
+ * grades using the FSRS algorithm, and tracks session-specific statistics.
+ */
+import { v4 as uuidv4 } from 'uuid';
+import {
+  FSRSProgress,
+  FSRSRating,
+  processFSRSReview,
+  createInitialFSRSProgress,
+  FSRSReviewLog,
+} from '../fsrs';
+import {
+  Card,
+  SessionState,
+  ProgressStats,
+  StudySession as StudySessionData,
+  VocabularyWithProgress
+} from './types';
+import { CardScheduler } from './cardScheduler';
+import { isCardDue, daysUntilReview } from './progressTracker';
+
+export class ActiveStudySession {
+  private state: SessionState;
+  private cardQueue: Card[] = [];
+
+  constructor(
+    userId: string,
+    deckId: string,
+    allCards: Card[], // These should be pre-populated with FSRSProgress
+    scheduler: CardScheduler
+  ) {
+    this.cardQueue = scheduler.createSessionDeck();
+    this.state = {
+      sessionId: uuidv4(),
+      userId,
+      deckId,
+      cards: allCards,
+      progress: {
+        reviewed: 0,
+        grades: [],
+      },
+      currentCard: this.cardQueue[0] || null,
+      createdAt: new Date(),
+      lastActive: new Date(),
+    };
+  }
+
+  /**
+   * Retrieves the current state of the session.
+   */
+  public getState(): SessionState {
+    return this.state;
+  }
+
+  /**
+   * Gets the next card to be reviewed in the session.
+   * @returns The next card, or null if the session is complete.
+   */
+  public getNextCard(): Card | null {
+    if (this.cardQueue.length === 0) {
+      this.state.currentCard = null;
+      return null;
+    }
+    // Simple queue: take the first card. More complex logic (e.g., interleaving) can be added here.
+    this.state.currentCard = this.cardQueue[0];
+    return this.state.currentCard;
+  }
+
+  /**
+   * Processes a user's grade for the current card, updates its progress,
+   * and moves to the next card.
+   * @param rating - The FSRSRating (Again, Hard, Good, Easy) given by the user.
+   * @returns The updated progress for the reviewed card.
+   */
+  public gradeCard(rating: FSRSRating): { updatedProgress: FSRSProgress, reviewLog: FSRSReviewLog } | null {
+    const currentCard = this.state.currentCard;
+    if (!currentCard) {
+      return null;
+    }
+
+    // Process the review using the FSRS algorithm
+    const { updatedProgress, reviewLog } = processFSRSReview(
+      currentCard.studyProgress,
+      rating
+    );
+
+    // Update the card's progress within the session state
+    const cardIndex = this.state.cards.findIndex(c => c.id === currentCard.id);
+    if (cardIndex !== -1) {
+      this.state.cards[cardIndex].studyProgress = updatedProgress;
+    }
+
+    // Update session stats
+    this.state.progress.reviewed++;
+    this.state.progress.grades.push(rating);
+    this.state.lastActive = new Date();
+
+    // Remove the graded card from the queue
+    this.cardQueue.shift();
+
+    // Set the next card
+    this.getNextCard();
+
+    // The reviewLog is returned to be saved to the database.
+    return { updatedProgress, reviewLog };
+  }
+
+  /**
+   * Checks if the study session is complete.
+   */
+  public isFinished(): boolean {
+    return this.cardQueue.length === 0 && this.state.currentCard === null;
+  }
+
+  /**
+   * Re-hydrates an ActiveStudySession instance from a stored state.
+   * @param state - The SessionState object from a store.
+   * @returns A new instance of ActiveStudySession.
+   */
+  public static fromState(state: SessionState): ActiveStudySession {
+    // This is a simplified re-hydration. It creates a new scheduler and session
+    // but restores the state. A more robust implementation might need to
+    // serialize/deserialize the scheduler and card queue states as well.
+
+    // Map session cards back to VocabularyWithProgress for the scheduler
+    const vocabWithProgress: VocabularyWithProgress[] = state.cards.map(card => ({
+      vocabulary: {
+        id: card.id,
+        korean: card.korean,
+        english: card.english,
+        importanceScore: card.importanceScore,
+      },
+      studyProgress: card.studyProgress,
+      // These values are temporary for scheduler re-hydration.
+      // The scheduler's sorting logic will use the `studyProgress` to determine priority.
+      isDue: isCardDue(card.studyProgress),
+      daysUntilReview: daysUntilReview(card.studyProgress),
+    }));
+
+    const scheduler = new CardScheduler(vocabWithProgress, { maxCards: state.cards.length });
+    const session = new ActiveStudySession(state.userId, state.deckId, state.cards, scheduler);
+    
+    // Restore the exact state
+    session.state = state;
+    
+    // The card queue needs to be rebuilt based on the current state of cards
+    // This is a simplification; a real implementation would need to track queue progress.
+    const currentCardIndex = state.cards.findIndex(c => c.id === state.currentCard?.id);
+    session.cardQueue = state.cards.slice(currentCardIndex >= 0 ? currentCardIndex : 0);
+
+    return session;
+  }
+}
+
+/**
  * Study Session Management
  * 
  * This file implements study session management functionality including

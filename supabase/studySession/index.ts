@@ -1,182 +1,79 @@
-import { 
-   SRSGrade,
-   StudyState,
-   StudyProgress,
-   SessionState,
-   Card,
-   ProgressStats,
-   SessionQueues
-} from './types';
-import { createSession, getSession, updateSession, deleteSession } from './sessionManager';
-import { v4 as uuidv4 } from 'uuid';
-import { supabase } from '../client';
-import { updateProgress } from './progressTracker';
-// TODO: Replace with real import from shared SRS logic
-// If needed in the future: import { processGrade, isCardDue, ... } from '../../srs/srsAlgorithm';
-// import { getNewCards, getLearningCards, getReviewCards, getDueCards } from '../../srs/cardScheduler';
-
 /**
- * Maps a DB row from deck_words + words join to a Card and StudyProgress.
+ * FSRS Study Session Module
+ * 
+ * This module provides the primary interface for managing FSRS-based study sessions.
+ * It exposes functionality to start, manage, and interact with a user's study session.
  */
-function mapDbRowToCard(row: any): Card {
-  const word = row.word || {};
-  const progress: StudyProgress = {
-    id: row.id, // deck_words.id
-    vocabularyId: row.word_id, // deck_words.word_id
-    userId: row.user_id, // deck_words.user_id
-    state: row.state as StudyState,
-    interval: row.interval,
-    eFactor: row.e_factor,
-    consecutiveCorrect: row.consecutive_correct,
-    consecutiveIncorrect: row.consecutive_incorrect,
-    totalReviews: row.total_reviews,
-    nextReviewDate: new Date(row.next_review_date),
-    lastReviewedDate: row.last_reviewed_date ? new Date(row.last_reviewed_date) : row.last_reviewed_date,
-    firstSeenDate: row.first_seen_date ? new Date(row.first_seen_date) : row.first_seen_date,
-    createdAt: new Date(row.created_at),
-    updatedAt: row.updated_at ? new Date(row.updated_at) : new Date(),
-  };
-  return {
-    id: row.word_id,
-    korean: word.word,
-    english: word.definition,
-    importanceScore: word.importanceScore || 0,
-    studyProgress: progress,
-  };
-}
 
-/**
- * Initializes session queues from a list of cards.
- */
-function initializeQueues(cards: Card[]): SessionQueues {
-  return {
-    new: cards.filter(c => c.studyProgress.state === 'new'),
-    learning: cards.filter(c => c.studyProgress.state === 'learning'),
-    review: cards.filter(c => c.studyProgress.state === 'reviewing'),
-    mistakes: [], // Will be filled during session
-  };
-}
+import { SessionManager } from './sessionManager';
+import { ActiveStudySession } from './studySession';
+import { VocabularyWithProgress, SessionState, Card } from './types';
+import { Rating, FSRSProgress, FSRSReviewLog } from '../fsrs/types';
+import { CardScheduler } from './cardScheduler';
 
-/**
- * Selects the next card from the session queues (learning/mistakes > review > new).
- */
-function selectNextCard(queues: SessionQueues): Card | null {
-  return (
-    queues.mistakes[0] ||
-    queues.learning[0] ||
-    queues.new[0] ||
-    queues.review[0] ||
-    null
-  );
-}
+// Initialize a singleton instance of the SessionManager
+const sessionManager = new SessionManager();
 
 /**
  * Starts a new study session.
- * @param req { userId: string, deckId: string }
- * @returns { sessionId: string }
+ * @param userId The ID of the user.
+ * @param deckId The ID of the deck to study.
+ * @param vocabWithProgress The user's vocabulary and their FSRS progress.
+ * @returns The initial state of the new session.
  */
-export async function startSession(req: { userId: string; deckId: string }) {
-  // Fetch cards from deck_words + words for this deck and user
-  const { data: rows, error } = await supabase
-    .from('deck_words')
-    .select('*, word:words(*)')
-    .eq('deck_id', req.deckId)
-    .eq('user_id', req.userId);
-  if (error) throw new Error('Failed to fetch cards for deck: ' + error.message);
-  const cards: Card[] = (rows || []).map(mapDbRowToCard);
-  const sessionId = uuidv4();
-  const session: SessionState = {
-    sessionId,
-    userId: req.userId,
-    deckId: req.deckId,
-    cards, // store all cards
-    progress: { reviewed: 0, grades: [] },
-    currentCard: null,
-    createdAt: new Date(),
-    lastActive: new Date(),
-  };
-  createSession(session);
-  return { sessionId };
+export function startStudySession(
+  userId: string,
+  deckId: string,
+  vocabWithProgress: VocabularyWithProgress[]
+): SessionState {
+  const session = sessionManager.createSession(userId, deckId, vocabWithProgress);
+  return session.getState();
 }
 
 /**
- * Gets the next due card for the session.
- * @param req { sessionId: string }
- * @returns { card: Card | null, progress: ProgressStats }
+ * Records a user's grade for the current card in a session and advances to the next.
+ * @param sessionId The ID of the active session.
+ * @param rating The FSRS rating from the user.
+ * @returns The updated session state.
  */
-export async function nextCard(req: { sessionId: string }) {
-  const session = getSession(req.sessionId);
-  if (!session) {
-    throw new Error('Session not found or expired. Please start a new session.');
+export function gradeCard(
+  sessionId: string,
+  rating: Rating
+): { newState: SessionState; updatedProgress: FSRSProgress; reviewLog: FSRSReviewLog } {
+  const state = sessionManager.getSessionState(sessionId);
+  if (!state) {
+    throw new Error('Session not found.');
   }
-  // Select next due card
-  const now = new Date();
-  const dueCards = session.cards.filter(card => card.studyProgress.nextReviewDate <= now);
-  dueCards.sort((a, b) => a.studyProgress.nextReviewDate.getTime() - b.studyProgress.nextReviewDate.getTime());
-  const next = dueCards[0] || null;
-  session.currentCard = next;
-  session.lastActive = new Date();
-  updateSession(session);
-  return { card: next, progress: session.progress };
+  
+  // Re-hydrate the ActiveStudySession instance from its state
+  const session = ActiveStudySession.fromState(state);
+  
+  // Grade the card. This mutates the session's state internally.
+  const gradeResult = session.gradeCard(rating);
+  if (!gradeResult) {
+    throw new Error('Cannot grade card, no card is active in the session.');
+  }
+
+  const { updatedProgress, reviewLog } = gradeResult;
+
+  // Persist the updated state
+  const newState = session.getState();
+  sessionManager.saveSessionState(newState);
+
+  // The results are returned to be persisted to the database by the caller.
+  return { newState, updatedProgress, reviewLog };
 }
 
 /**
- * Grades the current card and updates session state and DB.
- * @param req { sessionId: string, cardId: string, grade: SRSGrade }
- * @returns { card: Card | null, progress: ProgressStats }
+ * Ends a study session.
+ * @param sessionId The ID of the session to end.
  */
-export async function gradeCard(req: { sessionId: string; cardId: string; grade: SRSGrade }) {
-  const session = getSession(req.sessionId);
-  if (!session) {
-    throw new Error('Session not found or expired. Please start a new session.');
+export function endStudySession(sessionId: string): void {
+  const state = sessionManager.getSessionState(sessionId);
+  if (state) {
+    // In a real app, you would finalize stats and persist the results.
+    // For now, we just log it.
+    console.log(`Ending session ${sessionId}. Reviewed ${state.progress.reviewed} cards.`);
+    // sessionManager.deleteSession(sessionId); // Or mark as inactive
   }
-  if (!session.currentCard || session.currentCard.id !== req.cardId) {
-    throw new Error('No current card found for this session.');
-  }
-  // Update StudyProgress using SRS logic
-  const updatedProgress = updateProgress(session.currentCard.studyProgress, req.grade);
-  session.currentCard.studyProgress = updatedProgress;
-  // Persist progress to DB (deck_words)
-  await supabase
-    .from('deck_words')
-    .update({
-      state: updatedProgress.state,
-      interval: updatedProgress.interval,
-      e_factor: updatedProgress.eFactor,
-      consecutive_correct: updatedProgress.consecutiveCorrect,
-      consecutive_incorrect: updatedProgress.consecutiveIncorrect,
-      total_reviews: updatedProgress.totalReviews,
-      next_review_date: updatedProgress.nextReviewDate.toISOString(),
-      last_reviewed_date: updatedProgress.lastReviewedDate?.toISOString() as string,
-    })
-    .eq('word_id', req.cardId)
-    .eq('deck_id', session.deckId)
-    .eq('user_id', session.userId);
-  // Update the card in the session.cards array
-  const idx = session.cards.findIndex((c: Card) => c.id === req.cardId);
-  if (idx !== -1) {
-    session.cards[idx].studyProgress = updatedProgress;
-  }
-  // Update session stats
-  session.progress.reviewed += 1;
-  session.progress.grades.push(req.grade);
-  // Select next due card
-  const now = new Date();
-  const dueCards = session.cards.filter(card => card.studyProgress.nextReviewDate <= now);
-  dueCards.sort((a, b) => a.studyProgress.nextReviewDate.getTime() - b.studyProgress.nextReviewDate.getTime());
-  const next = dueCards[0] || null;
-  session.currentCard = next;
-  session.lastActive = new Date();
-  updateSession(session);
-  return { card: next, progress: session.progress };
 }
-
-/**
- * Quits the session and cleans up.
- * @param req { sessionId: string }
- * @returns { success: boolean }
- */
-export async function quitSession(req: { sessionId: string }) {
-  deleteSession(req.sessionId);
-  return { success: true };
-} 
