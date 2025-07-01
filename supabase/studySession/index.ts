@@ -26,7 +26,10 @@ export function startStudySession(
   deckId: string,
   vocabWithProgress: VocabularyWithProgress[]
 ): SessionState {
-  const session = sessionManager.createSession(userId, deckId, vocabWithProgress);
+  // Use CardScheduler to create buckets and pass to ActiveStudySession
+  const scheduler = new CardScheduler(vocabWithProgress);
+  // The allCards param is not used in the new bucket-based logic, so pass an empty array
+  const session = new ActiveStudySession(userId, deckId, [], scheduler);
   return session.getState();
 }
 
@@ -44,22 +47,17 @@ export function gradeCard(
   if (!state) {
     throw new Error('Session not found.');
   }
-  
-  // Re-hydrate the ActiveStudySession instance from its state
+  // Re-hydrate the ActiveStudySession instance from its state (now uses queues)
   const session = ActiveStudySession.fromState(state);
-  
   // Grade the card. This mutates the session's state internally.
   const gradeResult = session.gradeCard(rating);
   if (!gradeResult) {
     throw new Error('Cannot grade card, no card is active in the session.');
   }
-
   const { updatedProgress, reviewLog } = gradeResult;
-
-  // Persist the updated state
+  // Persist the updated state (with queues)
   const newState = session.getState();
   sessionManager.saveSessionState(newState);
-
   // The results are returned to be persisted to the database by the caller.
   return { newState, updatedProgress, reviewLog };
 }

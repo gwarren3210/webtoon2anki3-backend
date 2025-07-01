@@ -12,6 +12,7 @@ import {
   FSRSReviewLog,
   FSRSParameters
 } from '../fsrs';
+import { FSRSState as _FSRSState } from '../fsrs/types';
 
 /**
  * Represents the current state of a vocabulary item in the SRS system
@@ -216,13 +217,10 @@ export interface Card {
   studyProgress: FSRSProgress;
 }
 
-// Queues for session state
-export interface SessionQueues {
-  new: Card[];
-  learning: Card[];
-  review: Card[];
-  mistakes: Card[];
-}
+// Queues for session state, keyed by FSRSState
+export type SessionQueues = {
+  [key in _FSRSState]: Card[];
+};
 
 // Progress stats for session
 export interface ProgressStats {
@@ -236,7 +234,8 @@ export interface SessionState {
   sessionId: string;
   userId: string;
   deckId: string;
-  cards: Card[]; // all cards for the session
+  // cards: Card[]; // Deprecated: use queues instead
+  queues: SessionQueues;
   progress: ProgressStats;
   currentCard: Card | null;
   createdAt: Date;

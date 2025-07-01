@@ -9,7 +9,7 @@ import {
 } from "./studySession/index";
 import { VocabularyWithProgress } from "./studySession/types";
 import { FSRSProgress } from './fsrs/index'
-import { Rating } from './fsrs/types';
+import { FSRSState, Rating } from './fsrs/types';
 
 /* export interface FSRSProgress {
   id: string;
@@ -1176,9 +1176,17 @@ export const startStudySessionApi = api<{ userId: string; deckId: string }, { se
     }
     
     // 5. Build the final array of vocabulary with their progress
+    let MAX_NEW_WORDS = 20;
     for (const cw of chapterWords) {
         const progress = progressMap.get(cw.word_id);
         if (progress) { // Should always be true now
+            if (progress.State === FSRSState.New){
+              if(MAX_NEW_WORDS > 0){
+                MAX_NEW_WORDS -= 1;
+              } else {
+                continue;
+              }
+            }
             vocabWithProgress.push({
                 vocabulary: {
                     id: (cw.words as any).id,
@@ -1199,6 +1207,7 @@ export const startStudySessionApi = api<{ userId: string; deckId: string }, { se
     
     // 6. Start the session with the fully populated data
     const sessionState = startStudySession(userId, deckId, vocabWithProgress);
+    // Optionally, you can flatten the queues for frontend compatibility
     return { sessionState };
 });
 

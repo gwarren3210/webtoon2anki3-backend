@@ -18,35 +18,45 @@ import {
   SessionState,
   ProgressStats,
   StudySession as StudySessionData,
-  VocabularyWithProgress
+  VocabularyWithProgress,
+  SessionQueues
 } from './types';
 import { CardScheduler } from './cardScheduler';
 import { isCardDue, daysUntilReview } from './progressTracker';
+import { FSRSState } from '../fsrs/types';
 
 export class ActiveStudySession {
   private state: SessionState;
-  private cardQueue: Card[] = [];
+  private queues: SessionQueues;
+  private bucketOrder: (FSRSState)[] = [
+    FSRSState.Learning,
+    FSRSState.Review,
+    FSRSState.New,
+    FSRSState.Relearning
+  ];
+  private bucketIndex: number = 0;
 
   constructor(
     userId: string,
     deckId: string,
-    allCards: Card[], // These should be pre-populated with FSRSProgress
+    allCards: Card[],
     scheduler: CardScheduler
   ) {
-    this.cardQueue = scheduler.createSessionDeck();
+    this.queues = scheduler.createSessionBuckets();
     this.state = {
       sessionId: uuidv4(),
       userId,
       deckId,
-      cards: allCards,
+      queues: this.queues,
       progress: {
         reviewed: 0,
         grades: [],
       },
-      currentCard: this.cardQueue[0] || null,
+      currentCard: null,
       createdAt: new Date(),
       lastActive: new Date(),
     };
+    this.getNextCard();
   }
 
   /**
@@ -57,55 +67,53 @@ export class ActiveStudySession {
   }
 
   /**
-   * Gets the next card to be reviewed in the session.
-   * @returns The next card, or null if the session is complete.
+   * Draws the next card from the buckets using round robin.
    */
   public getNextCard(): Card | null {
-    if (this.cardQueue.length === 0) {
-      this.state.currentCard = null;
-      return null;
+    const buckets = this.queues;
+    for (let i = 0; i < this.bucketOrder.length; i++) {
+      const bucketName = this.bucketOrder[this.bucketIndex];
+      this.bucketIndex = (this.bucketIndex + 1) % this.bucketOrder.length;
+      if (buckets[bucketName] && buckets[bucketName].length > 0) {
+        const card = buckets[bucketName].shift()!;
+        this.state.currentCard = card;
+        return card;
+      }
     }
-    // Simple queue: take the first card. More complex logic (e.g., interleaving) can be added here.
-    this.state.currentCard = this.cardQueue[0];
-    return this.state.currentCard;
+    this.state.currentCard = null;
+    return null;
   }
 
   /**
-   * Processes a user's grade for the current card, updates its progress,
-   * and moves to the next card.
-   * @param rating - The FSRSRating (Again, Hard, Good, Easy) given by the user.
-   * @returns The updated progress for the reviewed card.
+   * Grades the current card and re-inserts if due again today.
    */
   public gradeCard(rating: FSRSRating): { updatedProgress: FSRSProgress, reviewLog: FSRSReviewLog } | null {
     const currentCard = this.state.currentCard;
     if (!currentCard) {
       return null;
     }
-
-    // Process the review using the FSRS algorithm
     const { updatedProgress, reviewLog } = processFSRSReview(
       currentCard.studyProgress,
       rating
     );
-
-    // Update the card's progress within the session state
-    const cardIndex = this.state.cards.findIndex(c => c.id === currentCard.id);
-    if (cardIndex !== -1) {
-      this.state.cards[cardIndex].studyProgress = updatedProgress;
-    }
-
+    // Update card's progress in queues
+    currentCard.studyProgress = updatedProgress;
     // Update session stats
     this.state.progress.reviewed++;
     this.state.progress.grades.push(rating);
     this.state.lastActive = new Date();
-
-    // Remove the graded card from the queue
-    this.cardQueue.shift();
-
-    // Set the next card
+    // If card is due again today, re-insert into the correct bucket
+    const now = new Date();
+    const due = new Date(updatedProgress.due);
+    if ((due.getTime() - now.getTime()) < 24 * 60 * 60 * 1000) {
+      if (this.queues[updatedProgress.state]) {
+        this.queues[updatedProgress.state].push(currentCard);
+      } else {
+        this.queues[FSRSState.Learning].push(currentCard);
+      }
+    }
+    // Draw next card
     this.getNextCard();
-
-    // The reviewLog is returned to be saved to the database.
     return { updatedProgress, reviewLog };
   }
 
@@ -113,7 +121,7 @@ export class ActiveStudySession {
    * Checks if the study session is complete.
    */
   public isFinished(): boolean {
-    return this.cardQueue.length === 0 && this.state.currentCard === null;
+    return this.bucketOrder.every(bucket => (this.queues[bucket] || []).length === 0) && this.state.currentCard === null;
   }
 
   /**
@@ -122,36 +130,11 @@ export class ActiveStudySession {
    * @returns A new instance of ActiveStudySession.
    */
   public static fromState(state: SessionState): ActiveStudySession {
-    // This is a simplified re-hydration. It creates a new scheduler and session
-    // but restores the state. A more robust implementation might need to
-    // serialize/deserialize the scheduler and card queue states as well.
-
-    // Map session cards back to VocabularyWithProgress for the scheduler
-    const vocabWithProgress: VocabularyWithProgress[] = state.cards.map(card => ({
-      vocabulary: {
-        id: card.id,
-        korean: card.korean,
-        english: card.english,
-        importanceScore: card.importanceScore,
-      },
-      studyProgress: card.studyProgress,
-      // These values are temporary for scheduler re-hydration.
-      // The scheduler's sorting logic will use the `studyProgress` to determine priority.
-      isDue: isCardDue(card.studyProgress),
-      daysUntilReview: daysUntilReview(card.studyProgress),
-    }));
-
-    const scheduler = new CardScheduler(vocabWithProgress, { maxCards: state.cards.length });
-    const session = new ActiveStudySession(state.userId, state.deckId, state.cards, scheduler);
-    
-    // Restore the exact state
+    // Rehydrate queues from state
+    const scheduler = new CardScheduler([], { maxCards: 0 });
+    const session = new ActiveStudySession(state.userId, state.deckId, [], scheduler);
     session.state = state;
-    
-    // The card queue needs to be rebuilt based on the current state of cards
-    // This is a simplification; a real implementation would need to track queue progress.
-    const currentCardIndex = state.cards.findIndex(c => c.id === state.currentCard?.id);
-    session.cardQueue = state.cards.slice(currentCardIndex >= 0 ? currentCardIndex : 0);
-
+    session.queues = state.queues;
     return session;
   }
 }
