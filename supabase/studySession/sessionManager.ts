@@ -9,6 +9,7 @@ import { ActiveStudySession } from './studySession';
 import { CardScheduler } from './cardScheduler';
 import { SessionState, VocabularyWithProgress, Card as SessionCard } from './types';
 import { FSRSProgress, createInitialFSRSProgress } from '../fsrs';
+import log from "encore.dev/log";
 
 // In a real application, these would interact with a database or a cache like Redis.
 const sessionStore: Map<string, SessionState> = new Map();
@@ -69,6 +70,7 @@ export class SessionManager {
    * @param state - The session state to save.
    */
   public saveSessionState(state: SessionState): void {
+    log.info("Saving session", { sessionId: state.sessionId, keys: Object.keys(state) });
     sessionStore.set(state.sessionId, state);
   }
 
@@ -78,6 +80,8 @@ export class SessionManager {
    * @returns The session state, or undefined if not found.
    */
   public getSessionState(sessionId: string): SessionState | undefined {
-    return sessionStore.get(sessionId);
+    const session = sessionStore.get(sessionId);
+    log.info("Loading session", { sessionId, found: !!session });
+    return session;
   }
 } 
