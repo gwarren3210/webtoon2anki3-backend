@@ -1132,7 +1132,7 @@ export const startStudySessionApi = api<{ userId: string; deckId: string }, { se
     // 2. Get all word IDs and word data from that chapter
     const { data: chapterWords, error: wordsError } = await supabase
         .from('chapter_words')
-        .select('word_id, words!inner(id, word, definition, importance_score)')
+        .select('word_id, importance_score, words!inner(id, word, definition)')
         .eq('chapter_id', chapterId);
 
     if (wordsError) throw APIError.internal("Failed to get chapter words for session").withDetails({ error: wordsError.message });
@@ -1184,7 +1184,7 @@ export const startStudySessionApi = api<{ userId: string; deckId: string }, { se
                     id: (cw.words as any).id,
                     korean: (cw.words as any).word,
                     english: (cw.words as any).definition,
-                    importanceScore: (cw.words as any).importance_score || 0,
+                    importanceScore: cw.importance_score || 0,
                 },
                 studyProgress: {
                     ...progress,
