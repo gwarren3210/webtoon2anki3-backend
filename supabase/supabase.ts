@@ -1188,12 +1188,12 @@ export const startStudySessionApi = api<{ userId: string; deckId: string }, { se
     // 1. Separate new and non-new cards
     const newWords = chapterWords.filter(cw => {
       const progress = progressMap.get(cw.word_id);
-      return progress && progress.State === FSRSState.New;
+      return progress && progress.state === FSRSState.New;
     }).slice(0, MAX_NEW_WORDS);
 
     const nonNewWords = chapterWords.filter(cw => {
       const progress = progressMap.get(cw.word_id);
-      return progress && progress.State !== FSRSState.New;
+      return progress && progress.state !== FSRSState.New;
     }).sort((a, b) => {
       const progressA = progressMap.get(a.word_id);
       const progressB = progressMap.get(b.word_id);
