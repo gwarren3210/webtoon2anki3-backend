@@ -4,8 +4,6 @@
  * This module provides the primary interface for managing FSRS-based study sessions.
  * It exposes functionality to start, manage, and interact with a user's study session.
  */
-
-import { SessionManager } from './sessionManager';
 import { ActiveStudySession } from './studySession';
 import { VocabularyWithProgress, SessionState, Card } from './types';
 import { Rating, FSRSProgress, FSRSReviewLog } from '../fsrs/types';
@@ -13,9 +11,6 @@ import { CardScheduler } from './cardScheduler';
 import { saveSessionState, getSessionState, deleteSessionState } from "../sessionManager";
 import log from "encore.dev/log";
 import { supabase } from "../client";
-
-// Initialize a singleton instance of the SessionManager
-const sessionManager = new SessionManager();
 
 /**
  * Starts a new study session.

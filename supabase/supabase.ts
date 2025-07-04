@@ -1206,7 +1206,7 @@ export const startStudySessionApi = api<{ userId: string; deckId: string }, { se
     }
     
     // 6. Start the session with the fully populated data
-    const sessionState = startStudySession(userId, deckId, vocabWithProgress);
+    const sessionState = await startStudySession(userId, deckId, vocabWithProgress);
     // Optionally, you can flatten the queues for frontend compatibility
     return { sessionState };
 });
