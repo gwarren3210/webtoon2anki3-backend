@@ -12,7 +12,7 @@ import { FSRSProgress } from './fsrs/index'
 import { FSRSState, Rating } from './fsrs/types';
 
 /* export interface FSRSProgress {
-  id: string;
+  id: string;logic options+
   userId: string;
   vocabularyId: string;
   due: Date;
@@ -1227,7 +1227,7 @@ export const gradeCardApi = api<{ sessionId: string; rating: Rating }, { session
     //const fsrsRating = rating as typeof Rating[keyof typeof Rating];
 
     // This function now returns all the data we need to persist
-    const { newState, updatedProgress, reviewLog } = gradeCardLogic(sessionId, rating);
+    const { newState, updatedProgress, reviewLog } = await gradeCardLogic(sessionId, rating);
 
     // Persist FSRSProgress to the database
     const { error: progressError } = await supabase
