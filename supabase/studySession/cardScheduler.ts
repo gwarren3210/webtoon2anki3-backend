@@ -135,6 +135,8 @@ export class CardScheduler {
       [FSRSStateType.Review]: [],
       [FSRSStateType.Relearning]: []
     };
+    const now = new Date();
+    const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
     for (const vwp of this.cards) {
       const progress = vwp.studyProgress || this.createPlaceholderProgress(vwp.vocabulary.id);
       const card: Card = {
@@ -144,10 +146,10 @@ export class CardScheduler {
         importanceScore: vwp.vocabulary.importanceScore,
         studyProgress: progress,
       };
-      if (buckets[progress.state]) {
-        buckets[progress.state].push(card);
-      } else {
-        buckets[FSRSStateType.Review].push(card);
+      if (progress.state === FSRSStateType.New) {
+        buckets[FSRSStateType.New].push(card);
+      } else if (progress.due < tomorrow) {
+        buckets[progress.state]?.push(card);
       }
     }
     return buckets;
