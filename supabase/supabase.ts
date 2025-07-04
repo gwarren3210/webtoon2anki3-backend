@@ -11,6 +11,7 @@ import { VocabularyWithProgress } from "./studySession/types";
 import { FSRSProgress } from './fsrs/index'
 import { FSRSState, Rating } from './fsrs/types';
 import { reviveSessionState } from "./studySession/utils";
+import log from "encore.dev/log";
 
 /* export interface FSRSProgress {
   id: string;logic options+
@@ -1139,6 +1140,8 @@ export const startStudySessionApi = api<{ userId: string; deckId: string }, { se
     if (wordsError) throw APIError.internal("Failed to get chapter words for session").withDetails({ error: wordsError.message });
     if (!chapterWords) throw APIError.notFound("No words found for this deck's chapter.");
 
+    log.info('chapterWords', { length: chapterWords.length, sample: chapterWords[0] });
+
     const wordIds = chapterWords.map(cw => cw.word_id);
     
     // 3. Fetch existing FSRS progress for these words for the user
@@ -1150,9 +1153,13 @@ export const startStudySessionApi = api<{ userId: string; deckId: string }, { se
         
     if (progressError) throw APIError.internal("Failed to get user progress").withDetails({ error: progressError.message });
     
+    log.info('progressData', { length: progressData ? progressData.length : 0, sample: progressData && progressData[0] });
+
     // 4. For any words the user hasn't seen, create a new progress record in the database
     const progressMap = new Map((progressData || []).map(p => [p.vocabulary_id, p]));
     const wordsWithoutProgress = chapterWords.filter(cw => !progressMap.has(cw.word_id));
+
+    log.info('wordsWithoutProgress', { length: wordsWithoutProgress.length, sample: wordsWithoutProgress[0] });
 
     if (wordsWithoutProgress.length > 0) {
         const newProgressRecords = wordsWithoutProgress.map(cw => ({
@@ -1215,7 +1222,8 @@ export const startStudySessionApi = api<{ userId: string; deckId: string }, { se
         daysUntilReview: Math.max(0, (new Date(progress.due).getTime() - new Date().getTime()) / (1000 * 3600 * 24))
       };
     });
-    
+
+    log.info('vocabWithProgress', { length: vocabWithProgress.length, sample: vocabWithProgress[0] });
     // 6. Start the session with the fully populated data
     const sessionState = await startStudySession(userId, deckId, vocabWithProgress);
     // Optionally, you can flatten the queues for frontend compatibility
