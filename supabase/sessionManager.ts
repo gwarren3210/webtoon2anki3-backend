@@ -7,6 +7,7 @@ export async function saveSessionState(state: SessionState): Promise<void> {
     .from("sessions")
     .upsert({
       session_id: state.sessionId,
+      user_id: state.userId,
       state,
       updated_at: new Date().toISOString(),
       created_at: state.createdAt?.toISOString() ?? new Date().toISOString(),
