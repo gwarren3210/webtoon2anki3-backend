@@ -10,6 +10,7 @@ import {
 import { VocabularyWithProgress } from "./studySession/types";
 import { FSRSProgress } from './fsrs/index'
 import { FSRSState, Rating } from './fsrs/types';
+import { reviveSessionState } from "./studySession/utils";
 
 /* export interface FSRSProgress {
   id: string;logic options+
@@ -1151,7 +1152,6 @@ export const startStudySessionApi = api<{ userId: string; deckId: string }, { se
     
     // 4. For any words the user hasn't seen, create a new progress record in the database
     const progressMap = new Map((progressData || []).map(p => [p.vocabulary_id, p]));
-    const vocabWithProgress: VocabularyWithProgress[] = [];
     const wordsWithoutProgress = chapterWords.filter(cw => !progressMap.has(cw.word_id));
 
     if (wordsWithoutProgress.length > 0) {
@@ -1176,39 +1176,50 @@ export const startStudySessionApi = api<{ userId: string; deckId: string }, { se
     }
     
     // 5. Build the final array of vocabulary with their progress
-    let MAX_NEW_WORDS = 20;
-    for (const cw of chapterWords) {
-        const progress = progressMap.get(cw.word_id);
-        if (progress) { // Should always be true now
-            if (progress.State === FSRSState.New){
-              if(MAX_NEW_WORDS > 0){
-                MAX_NEW_WORDS -= 1;
-              } else {
-                continue;
-              }
-            }
-            vocabWithProgress.push({
-                vocabulary: {
-                    id: (cw.words as any).id,
-                    korean: (cw.words as any).word,
-                    english: (cw.words as any).definition,
-                    importanceScore: cw.importance_score || 0,
-                },
-                studyProgress: {
-                    ...progress,
-                    due: new Date(progress.due),
-                    last_review: progress.last_review ? new Date(progress.last_review) : undefined,
-                } as FSRSProgress,
-                isDue: new Date(progress.due) <= new Date(),
-                daysUntilReview: Math.max(0, (new Date(progress.due).getTime() - new Date().getTime()) / (1000 * 3600 * 24))
-            });
-        }
-    }
+    const MAX_NEW_WORDS = 20;
+    const MAX_TOTAL_WORDS = 50;
+    // 1. Separate new and non-new cards
+    const newWords = chapterWords.filter(cw => {
+      const progress = progressMap.get(cw.word_id);
+      return progress && progress.State === FSRSState.New;
+    }).slice(0, MAX_NEW_WORDS);
+
+    const nonNewWords = chapterWords.filter(cw => {
+      const progress = progressMap.get(cw.word_id);
+      return progress && progress.State !== FSRSState.New;
+    }).sort((a, b) => {
+      const progressA = progressMap.get(a.word_id);
+      const progressB = progressMap.get(b.word_id);
+      return new Date(progressA.due).getTime() - new Date(progressB.due).getTime();
+    });
+
+    // 2. Combine, prioritizing non-new cards first (or reverse if you want new first)
+    const selectedWords = [...nonNewWords, ...newWords].slice(0, MAX_TOTAL_WORDS);
+
+    // 3. Map to vocabWithProgress
+    const vocabWithProgress: VocabularyWithProgress[] = selectedWords.map(cw => {
+      const progress = progressMap.get(cw.word_id);
+      return {
+        vocabulary: {
+          id: (cw.words as any).id,
+          korean: (cw.words as any).word,
+          english: (cw.words as any).definition,
+          importanceScore: cw.importance_score || 0,
+        },
+        studyProgress: {
+          ...progress,
+          due: new Date(progress.due),
+          last_review: progress.last_review ? new Date(progress.last_review) : undefined,
+        } as FSRSProgress,
+        isDue: new Date(progress.due) <= new Date(),
+        daysUntilReview: Math.max(0, (new Date(progress.due).getTime() - new Date().getTime()) / (1000 * 3600 * 24))
+      };
+    });
     
     // 6. Start the session with the fully populated data
     const sessionState = await startStudySession(userId, deckId, vocabWithProgress);
     // Optionally, you can flatten the queues for frontend compatibility
-    return { sessionState };
+    return { sessionState: reviveSessionState(sessionState) };
 });
 
 
@@ -1273,7 +1284,7 @@ export const gradeCardApi = api<{ sessionId: string; rating: Rating }, { session
         console.error("Failed to persist FSRS review log", logError.message);
     }
     
-    return { sessionState: newState };
+    return { sessionState: reviveSessionState(newState) };
 });
 
 /**

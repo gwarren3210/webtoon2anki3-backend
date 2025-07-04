@@ -1,6 +1,7 @@
 import { supabase } from "./client";
 import log from "encore.dev/log";
 import { SessionState } from "./studySession/types";
+import { reviveSessionState } from './studySession/utils';
 
 export async function saveSessionState(state: SessionState): Promise<void> {
   const { error } = await supabase
@@ -30,7 +31,7 @@ export async function getSessionState(sessionId: string): Promise<SessionState |
     return undefined;
   }
   log.info("Loaded session from Supabase", { sessionId });
-  return data.state as SessionState;
+  return reviveSessionState(data.state as SessionState);
 }
 
 export async function deleteSessionState(sessionId: string): Promise<void> {
