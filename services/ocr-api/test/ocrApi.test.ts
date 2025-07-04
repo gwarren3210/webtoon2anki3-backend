@@ -6,7 +6,6 @@ import { promises as fs } from 'fs';
 import { SmartOCRProcessor } from '../smartOcrProcessor';
 import { OcrResult } from '../../types';
 import sharp from 'sharp';
-//import { secret } from 'encore.dev/config';
 
 dotenv.config();
 
