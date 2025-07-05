@@ -220,7 +220,7 @@ export interface Card {
 // Queues for session state, keyed by FSRSState
 export type SessionQueues = {
   [key in _FSRSState]: Card[];
-};
+} & { mistakes: Card[] };
 
 // Progress stats for session
 export interface ProgressStats {

@@ -133,7 +133,8 @@ export class CardScheduler {
       [FSRSStateType.New]: [],
       [FSRSStateType.Learning]: [],
       [FSRSStateType.Review]: [],
-      [FSRSStateType.Relearning]: []
+      [FSRSStateType.Relearning]: [],
+      mistakes: [],
     };
     const now = new Date();
     const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
