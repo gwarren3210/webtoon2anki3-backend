@@ -476,12 +476,12 @@ export const listSeries = api<{}, ListSeriesResponse>({
 }, async () => {
   const { data, error } = await supabase
     .from('series')
-    .select('id, name, created_at')
+    .select('id, name, created_at, picture, synopsis, popularity, genres, authors, korean_name')
     .order('created_at', { ascending: false });
   if (error) {
     throw APIError.internal("failed to list series").withDetails({ error: error.message });
   }
-  return { series: (data || []).map((s: any) => ({ id: s.id, name: s.name, createdAt: s.created_at })) };
+  return { series: (data || []).map((s: any) => ({ id: s.id, name: s.name, createdAt: s.created_at, picture: s.picture, synopsis: s.synopsis, popularity: s.popularity, genres: s.genres, authors: s.authors, koreanName: s.korean_name })) };
 });
 
 interface CreateSeriesRequest {

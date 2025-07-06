@@ -11,6 +11,18 @@ export interface Vocabulary {
   // Add other fields as needed
 }
 
+export interface Series {
+  id: string;
+  name: string;
+  createdAt: string;
+  picture: string;
+  synopsis: string;
+  popularity: number
+  genres: JSON[];
+  authors: JSON[];
+  koreanName: string;
+}
+
 export interface Deck {
   id: string;
   name: string;
