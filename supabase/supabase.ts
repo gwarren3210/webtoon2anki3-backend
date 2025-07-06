@@ -1,7 +1,7 @@
 import { api, APIError, Header, Query } from "encore.dev/api";
 import { authHandler } from "./auth";
 import { getAuthData } from "~encore/auth";
-import { supabase } from "./client";
+import { supabase, supabaseAdmin } from "./client";
 import {
   startStudySession,
   gradeCard as gradeCardLogic,
@@ -1328,12 +1328,13 @@ export const endStudySessionApi = api<{ sessionId: string }, { success: boolean 
  * @body { username: string, email?: string, password?: string, guest?: boolean, avatar?: string }
  * @returns { user: object }
  */
+// TODO change from admin to anon
 export const signup = api<SignupRequest, SignupResponse>({
   method: "POST",
   path: "/supabase/auth/signup",
   expose: true,
 }, async ({ username, email, password }) => {
-  const { data, error } = await supabase.auth.admin.createUser({
+  const { data, error } = await supabaseAdmin.auth.admin.createUser({
     email,
     password,
     user_metadata: { username },
@@ -1380,6 +1381,12 @@ export const logout = api.raw({
   path: "/supabase/auth/logout",
   expose: true,
 }, async (_req, res) => {
+  const { error } = await supabase.auth.signOut();
+  if (error) {
+    res.statusCode = 401;
+    res.end(JSON.stringify({ error: error?.message || "Failed to sign out" }));
+    return;
+  }
   res.setHeader('Set-Cookie', 'sb-access-token=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0');
   res.setHeader('Content-Type', 'application/json');
   res.end(JSON.stringify({ success: true }));
