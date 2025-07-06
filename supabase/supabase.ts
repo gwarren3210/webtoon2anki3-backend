@@ -12,6 +12,12 @@ import { FSRSProgress } from './fsrs/index'
 import { FSRSState, Rating } from './fsrs/types';
 import { reviveSessionState } from "./studySession/utils";
 import log from "encore.dev/log";
+import type { 
+  SignupRequest, SignupResponse,
+  LoginRequest, LoginResponse,
+  LogoutRequest, LogoutResponse,
+  SessionRequest, SessionResponse 
+} from "./supabaseEndpoints";
 
 /* export interface FSRSProgress {
   id: string;logic options+
@@ -1308,4 +1314,103 @@ export const endStudySessionApi = api<{ sessionId: string }, { success: boolean 
 }, async ({ sessionId }) => {
   endStudySession(sessionId);
   return { success: true };
-}); 
+});
+
+// Add /supabase/auth/signup endpoint
+// Add /supabase/auth/login endpoint
+// Add /supabase/auth/logout endpoint
+// Move /auth/session to /supabase/auth/session
+// ... existing code ... 
+
+/**
+ * Registers a new user securely via Supabase Admin API.
+ * @route POST /supabase/auth/signup
+ * @body { username: string, email?: string, password?: string, guest?: boolean, avatar?: string }
+ * @returns { user: object }
+ */
+export const signup = api<SignupRequest, SignupResponse>({
+  method: "POST",
+  path: "/supabase/auth/signup",
+  expose: true,
+}, async ({ username, email, password }) => {
+  const { data, error } = await supabase.auth.admin.createUser({
+    email,
+    password,
+    user_metadata: { username },
+  });
+  if (error) {
+    throw APIError.internal("failed to create user").withDetails({ error: error.message });
+  }
+  return { user: data.user };
+});
+
+/**
+ * Logs in a user and issues a secure HTTP-only cookie.
+ * @route POST /supabase/auth/login
+ * @body { email: string, password: string }
+ * @returns { user: object }
+ */
+export const login = api.raw({
+  method: "POST",
+  path: "/supabase/auth/login",
+  expose: true,
+}, async (req, res) => {
+  let body = "";
+  for await (const chunk of req) body += chunk;
+  const { email, password } = JSON.parse(body);
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error || !data.session) {
+    res.statusCode = 401;
+    res.end(JSON.stringify({ error: error?.message || "Invalid credentials" }));
+    return;
+  }
+  res.setHeader('Set-Cookie', `sb-access-token=${data.session.access_token}; HttpOnly; Path=/; SameSite=Lax; Max-Age=604800`);
+  res.setHeader('Content-Type', 'application/json');
+  res.end(JSON.stringify({ user: data.user }));
+});
+
+/**
+ * Logs out a user by clearing the session cookie.
+ * @route POST /supabase/auth/logout
+ * @body { userId: string }
+ * @returns { success: boolean }
+ */
+export const logout = api.raw({
+  method: "POST",
+  path: "/supabase/auth/logout",
+  expose: true,
+}, async (_req, res) => {
+  res.setHeader('Set-Cookie', 'sb-access-token=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0');
+  res.setHeader('Content-Type', 'application/json');
+  res.end(JSON.stringify({ success: true }));
+});
+
+/**
+ * Gets the current authenticated user from the session cookie.
+ * @route GET /supabase/auth/session
+ * @returns { user: object }
+ */
+export const session = api.raw({
+  method: "GET",
+  path: "/supabase/auth/session",
+  expose: true,
+}, async (req, res) => {
+  const cookie = req.headers['cookie'] || '';
+  const match = cookie.match(/sb-access-token=([^;]+)/);
+  const token = match ? match[1] : null;
+  if (!token) {
+    res.statusCode = 401;
+    res.end(JSON.stringify({ error: "No session" }));
+    return;
+  }
+  const { data, error } = await supabase.auth.getUser(token);
+  if (error || !data.user) {
+    res.statusCode = 401;
+    res.end(JSON.stringify({ error: error?.message || "Invalid session" }));
+    return;
+  }
+  res.setHeader('Content-Type', 'application/json');
+  res.end(JSON.stringify({ user: { id: data.user.id, email: data.user.email } }));
+});
+
+// ... existing code ... 

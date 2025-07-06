@@ -1,6 +1,6 @@
 // All endpoint request/response types for supabase.ts
-import { SessionState, VocabularyWithProgress, Card, StudyProgress, ProgressStats } from './studySession/types'
-import { Rating } from './fsrs/types'
+import { SessionState, VocabularyWithProgress, StudyProgress, ProgressStats } from './studySession/types'
+import { Rating, FSRSProgress } from './fsrs/types'
 
 // Define missing interfaces for DB objects
 export interface Vocabulary {
@@ -19,6 +19,14 @@ export interface Deck {
   createdAt: string;
   // Add other fields as needed
 }
+
+interface Card {
+   id: string;
+   korean: string;
+   english: string;
+   importanceScore: number;
+   studyProgress: FSRSProgress;
+ }
 
 // Auth endpoints
 export interface GetSessionRequest {
@@ -192,21 +200,32 @@ export interface ListCardsResponse {
 }
 
 // User endpoints
-export interface CreateUserRequest {
+export interface SignupRequest {
   username: string;
-  guest?: boolean;
-  email?: string;
-  password?: string;
-  avatar?: string;
+  email: string;
+  password: string;
 }
-export interface CreateUserResponse {
+export interface SignupResponse {
   user: unknown;
 }
-export interface LoginUserRequest {
+export interface LoginRequest {
   username: string;
+  password: string;
 }
-export interface LoginUserResponse {
+export interface LoginResponse {
   user: any;
+}
+export interface LogoutRequest {
+  userId: string;
+}
+export interface LogoutResponse {
+  success: boolean;
+}
+export interface SessionRequest {
+  authorization: string;
+}
+export interface SessionResponse {
+  user: { id: string; email?: string };
 }
 export interface UserProgressRequest {
   userId: string;
@@ -322,8 +341,6 @@ export type SupabaseEndpointMap =
   | { path: "/supabase/cards/:cardId"; req: EditCardRequest; res: EditCardResponse }
   | { path: "/supabase/cards/:cardId"; req: DeleteCardRequest; res: DeleteCardResponse }
   | { path: "/supabase/chapters/:chapterId/cards"; req: ListCardsRequest; res: ListCardsResponse }
-  | { path: "/supabase/users"; req: CreateUserRequest; res: CreateUserResponse }
-  | { path: "/supabase/users/login"; req: LoginUserRequest; res: LoginUserResponse }
   | { path: "/supabase/users/:userId/progress"; req: UserProgressRequest; res: UserProgressResponse }
   | { path: "/supabase/users/:userId/reset"; req: ResetUserRequest; res: ResetUserResponse }
   | { path: "/supabase/decks"; req: ListDecksRequest; res: ListDecksResponse }
@@ -336,4 +353,8 @@ export type SupabaseEndpointMap =
   | { path: "/supabase/dev/watch"; req: {}; res: DevWatchResponse }
   | { path: "/study/session/start"; req: StartStudySessionRequest; res: StartStudySessionResponse }
   | { path: "/study/session/grade"; req: GradeCardRequest; res: GradeCardResponse }
-  | { path: "/study/session/end"; req: EndStudySessionRequest; res: EndStudySessionResponse }; 
+  | { path: "/study/session/end"; req: EndStudySessionRequest; res: EndStudySessionResponse }
+  | { path: "/supabase/auth/signup"; req: SignupRequest; res: SignupResponse }
+  | { path: "/supabase/auth/login"; req: LoginRequest; res: LoginResponse }
+  | { path: "/supabase/auth/logout"; req: LogoutRequest; res: LogoutResponse }
+  | { path: "/supabase/auth/session"; req: SessionRequest; res: SessionResponse }; 

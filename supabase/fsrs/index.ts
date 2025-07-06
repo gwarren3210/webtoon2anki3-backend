@@ -6,6 +6,6 @@
  * the FSRS logic.
  */
 
-export { FSRSState, FSRSRating, defaultFSRSParameters } from './types';
+export { FSRSState, Rating as FSRSRating, defaultFSRSParameters } from './types';
 export type { FSRSProgress, FSRSReviewLog, FSRSParameters } from './types';
 export * from './algorithm'; 
