@@ -1362,7 +1362,7 @@ export const login = api.raw({
   }
   res.setHeader('Set-Cookie', `sb-access-token=${data.session.access_token}; HttpOnly; Path=/; SameSite=Lax; Max-Age=604800`);
   res.setHeader('Content-Type', 'application/json');
-  res.end(JSON.stringify({ user: data.user }));
+  res.end(JSON.stringify({ user: { id: data.user.id, email: data.user.email ?? "" } }));
 });
 
 /**
@@ -1412,7 +1412,33 @@ export const session = api.raw({
     return;
   }
   res.setHeader('Content-Type', 'application/json');
-  res.end(JSON.stringify({ user: { id: data.user.id, email: data.user.email } }));
+  res.end(JSON.stringify({ user: { id: data.user.id, email: data.user.email ?? "" } }));
+});
+
+/**
+ * Structured login endpoint for Encore UI testing ONLY.
+ * Does NOT set a cookie. Do not use in production.
+ * @route POST /supabase/auth/login-structured
+ * @body { email: string, password: string }
+ * @returns { user: object }
+ */
+interface StructuredLoginRequest {
+  email: string;
+  password: string;
+}
+interface StructuredLoginResponse {
+  user: { id: string; email: string | undefined };
+}
+export const loginStructured = api<StructuredLoginRequest, StructuredLoginResponse>({
+  method: "POST",
+  path: "/supabase/auth/login-structured",
+  expose: true,
+}, async ({ email, password }) => {
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error || !data.session) {
+    throw APIError.unauthenticated(error?.message || "Invalid credentials");
+  }
+  return { user: { id: data.user.id, email: data.user.email } };
 });
 
 // ... existing code ... 
