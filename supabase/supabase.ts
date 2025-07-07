@@ -1398,15 +1398,20 @@ export const session = api.raw({
   expose: true,
 }, async (req, res) => {
   const cookie = req.headers['cookie'] || '';
+  log.info("[session] Incoming cookie header", { cookie });
   const match = cookie.match(/sb-access-token=([^;]+)/);
   const token = match ? match[1] : null;
+  log.info("[session] Extracted token", { token });
   if (!token) {
+    log.info("[session] No token found, returning 401");
     res.statusCode = 401;
     res.end(JSON.stringify({ error: "No session" }));
     return;
   }
   const { data, error } = await supabase.auth.getUser(token);
+  log.info("[session] Supabase getUser result", { data, error });
   if (error || !data.user) {
+    log.info("[session] Invalid session or error from Supabase", { error });
     res.statusCode = 401;
     res.end(JSON.stringify({ error: error?.message || "Invalid session" }));
     return;
