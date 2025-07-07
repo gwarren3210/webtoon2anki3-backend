@@ -1382,7 +1382,7 @@ export const logout = api.raw({
     res.end(JSON.stringify({ error: error?.message || "Failed to sign out" }));
     return;
   }
-  res.setHeader('Set-Cookie', 'sb-access-token=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0');
+  res.setHeader('Set-Cookie', 'sb-access-token=; HttpOnly; Path=/; SameSite=None; Secure;  Max-Age=0');
   res.setHeader('Content-Type', 'application/json');
   res.end(JSON.stringify({ success: true }));
 });
