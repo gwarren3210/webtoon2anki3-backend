@@ -328,6 +328,61 @@ export interface EndStudySessionResponse {
   success: boolean;
 }
 
+// User Profile endpoints
+export interface UserProfile {
+  userId: string;
+  streak: number;
+  avatar?: string;
+  displayName?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+export interface GetUserProfileRequest {
+  userId: string;
+}
+export interface GetUserProfileResponse {
+  profile: UserProfile;
+}
+export interface UpdateUserProfileRequest {
+  userId: string;
+  streak?: number;
+  avatar?: string;
+  displayName?: string;
+}
+export interface UpdateUserProfileResponse {
+  profile: UserProfile;
+}
+
+// Bulk Deck Stats endpoint
+export interface DeckStats {
+  deckId: string;
+  totalCards: number;
+  dueCards: number;
+  progress: number; // percent complete
+  lastStudied: string | null;
+  nextReview: string | null;
+  seriesImage: string | null;
+}
+export interface GetBulkDeckStatsRequest {
+  userId: string;
+}
+export interface GetBulkDeckStatsResponse {
+  stats: DeckStats[];
+}
+
+// User Activity endpoint
+export interface UserActivity {
+  date: string;
+  type: string;
+  details?: any;
+}
+export interface GetUserActivityRequest {
+  userId: string;
+}
+export interface GetUserActivityResponse {
+  activity: UserActivity[];
+}
+
 // Endpoint mapping type
 export type SupabaseEndpointMap =
   | { path: "/auth/session"; req: GetSessionRequest; res: GetSessionResponse }
@@ -368,4 +423,8 @@ export type SupabaseEndpointMap =
   | { path: "/supabase/auth/signup"; req: SignupRequest; res: SignupResponse }
   | { path: "/supabase/auth/login"; req: LoginRequest; res: LoginResponse }
   | { path: "/supabase/auth/logout"; req: LogoutRequest; res: LogoutResponse }
-  | { path: "/supabase/auth/session"; req: SessionRequest; res: SessionResponse }; 
+  | { path: "/supabase/auth/session"; req: SessionRequest; res: SessionResponse }
+  | { path: "/users/:userId/profile"; req: GetUserProfileRequest; res: GetUserProfileResponse }
+  | { path: "/users/:userId/profile/update"; req: UpdateUserProfileRequest; res: UpdateUserProfileResponse }
+  | { path: "/decks/stats"; req: GetBulkDeckStatsRequest; res: GetBulkDeckStatsResponse }
+  | { path: "/users/:userId/activity"; req: GetUserActivityRequest; res: GetUserActivityResponse }; 

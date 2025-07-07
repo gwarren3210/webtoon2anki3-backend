@@ -1272,8 +1272,7 @@ export const gradeCardApi = api<{ sessionId: string; rating: Rating }, { session
         .eq('id', updatedProgress.id);
         
     if (progressError) {
-        // Log error but don't fail the request, as the session state is updated in memory.
-        console.error("Failed to persist FSRS progress", progressError.message);
+        log.error("Failed to persist FSRS progress", { error: progressError.message });
     }
     
     // Persist FSRSReviewLog to the database
@@ -1295,7 +1294,7 @@ export const gradeCardApi = api<{ sessionId: string; rating: Rating }, { session
         });
 
     if (logError) {
-        console.error("Failed to persist FSRS review log", logError.message);
+        log.error("Failed to persist FSRS review log", { error: logError.message});
     }
     
     return { sessionState: reviveSessionState(newState) };
@@ -1446,4 +1445,164 @@ export const loginStructured = api<StructuredLoginRequest, StructuredLoginRespon
   return { user: { id: data.user.id, email: data.user.email } };
 });
 
-// ... existing code ... 
+// --- User Profile Endpoints ---
+import type {
+  GetUserProfileRequest, GetUserProfileResponse,
+  UpdateUserProfileRequest, UpdateUserProfileResponse,
+  GetBulkDeckStatsRequest, GetBulkDeckStatsResponse,
+  DeckStats,
+  GetUserActivityRequest, GetUserActivityResponse,
+  UserActivity
+} from "./supabaseEndpoints";
+
+export const getUserProfile = api<GetUserProfileRequest, GetUserProfileResponse>({
+  method: "GET",
+  path: "/users/:userId/profile",
+  expose: true,
+}, async ({ userId }) => {
+  const { data, error } = await supabase
+    .from('user_profiles')
+    .select('*')
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (error || !data) {
+    throw APIError.notFound("User profile not found").withDetails({ error: error?.message });
+  }
+  return { profile: {
+    userId: data.user_id,
+    streak: data.streak,
+    avatar: data.avatar,
+    displayName: data.display_name,
+    createdAt: data.created_at,
+    updatedAt: data.updated_at,
+  }};
+});
+
+export const updateUserProfile = api<UpdateUserProfileRequest, UpdateUserProfileResponse>({
+  method: "POST",
+  path: "/users/:userId/profile/update",
+  expose: true,
+}, async ({ userId, streak, avatar, displayName }) => {
+  const updates: any = { updated_at: new Date().toISOString() };
+  if (streak !== undefined) updates.streak = streak;
+  if (avatar !== undefined) updates.avatar = avatar;
+  if (displayName !== undefined) updates.display_name = displayName;
+  const { data, error } = await supabase
+    .from('user_profiles')
+    .update(updates)
+    .eq('user_id', userId)
+    .select('*')
+    .maybeSingle();
+  if (error || !data) {
+    throw APIError.internal("Failed to update user profile").withDetails({ error: error?.message });
+  }
+  return { profile: {
+    userId: data.user_id,
+    streak: data.streak,
+    avatar: data.avatar,
+    displayName: data.display_name,
+    createdAt: data.created_at,
+    updatedAt: data.updated_at,
+  }};
+});
+
+// --- Bulk Deck Stats Endpoint ---
+export const getBulkDeckStats = api<GetBulkDeckStatsRequest, GetBulkDeckStatsResponse>({
+  method: "GET",
+  path: "/decks/stats",
+  expose: true,
+}, async ({ userId }) => {
+  // Get all decks for user
+  const { data: decks, error: decksError } = await supabase
+    .from('decks')
+    .select('id, chapter_id')
+    .eq('user_id', userId);
+  if (decksError) throw APIError.internal("Failed to fetch decks").withDetails({ error: decksError.message });
+  if (!decks || decks.length === 0) return { stats: [] };
+
+  // Get chapter and series info for images
+  const chapterIds = decks.map((d: any) => d.chapter_id).filter(Boolean);
+  const { data: chapters, error: chaptersError } = await supabase
+    .from('chapters')
+    .select('id, series_id')
+    .in('id', chapterIds);
+  if (chaptersError) throw APIError.internal("Failed to fetch chapters").withDetails({ error: chaptersError.message });
+  const seriesIds = chapters.map((c: any) => c.series_id).filter(Boolean);
+  const { data: series, error: seriesError } = await supabase
+    .from('series')
+    .select('id, picture')
+    .in('id', seriesIds);
+  if (seriesError) throw APIError.internal("Failed to fetch series").withDetails({ error: seriesError.message });
+
+  // Get deck stats from fsrs_progress
+  const deckStats: DeckStats[] = [];
+  for (const deck of decks) {
+    // Get all word IDs for this deck
+    const { data: deckWords, error: deckWordsError } = await supabase
+      .from('chapter_words')
+      .select('word_id')
+      .eq('chapter_id', deck.chapter_id);
+    if (deckWordsError) continue;
+    const wordIds = deckWords.map((w: any) => w.word_id);
+    if (!wordIds.length) continue;
+    // Get progress for these words for this user
+    const { data: progress, error: progressError } = await supabase
+      .from('fsrs_progress')
+      .select('state, due, last_review')
+      .eq('user_id', userId)
+      .in('vocabulary_id', wordIds);
+    if (progressError) continue;
+    const totalCards = wordIds.length;
+    const dueCards = (progress || []).filter((p: any) => p.due && new Date(p.due) <= new Date()).length;
+    const learned = (progress || []).filter((p: any) => p.state !== 0).length;
+    const progressPct = totalCards ? Math.round((learned / totalCards) * 100) : 0;
+    const lastStudied = (progress || []).reduce((latest: string | null, p: any) => {
+      if (!p.last_review) return latest;
+      return !latest || new Date(p.last_review) > new Date(latest) ? p.last_review : latest;
+    }, null);
+    const nextReview = (progress || []).reduce((earliest: string | null, p: any) => {
+      if (!p.due) return earliest;
+      return !earliest || new Date(p.due) < new Date(earliest) ? p.due : earliest;
+    }, null);
+    // Find series image
+    const chapter = chapters.find((c: any) => c.id === deck.chapter_id);
+    const seriesObj = chapter && series.find((s: any) => s.id === chapter.series_id);
+    deckStats.push({
+      deckId: deck.id,
+      totalCards,
+      dueCards,
+      progress: progressPct,
+      lastStudied,
+      nextReview,
+      seriesImage: seriesObj ? seriesObj.picture : null,
+    });
+  }
+  return { stats: deckStats };
+});
+
+// --- User Activity Endpoint ---
+export const getUserActivity = api<GetUserActivityRequest, GetUserActivityResponse>({
+  method: "GET",
+  path: "/users/:userId/activity",
+  expose: true,
+}, async ({ userId }) => {
+  // Example: fetch recent review logs
+  const { data, error } = await supabase
+    .from('fsrs_review_logs')
+    .select('review, rating, state, due, created_at')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(20);
+  if (error) throw APIError.internal("Failed to fetch user activity").withDetails({ error: error.message });
+  const activity: UserActivity[] = (data || []).map((row: any) => ({
+    date: row.created_at,
+    type: 'review',
+    details: {
+      review: row.review,
+      rating: row.rating,
+      state: row.state,
+      due: row.due,
+    }
+  }));
+  return { activity };
+}); 
