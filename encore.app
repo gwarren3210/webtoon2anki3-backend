@@ -12,7 +12,8 @@
   "global_cors": {
     "allow_origins_with_credentials": [
       "http://localhost:8080",   // Vite dev server
-      "https://your-frontend-domain.com" // Your production frontend
+      "https://localhost:8080",   // Vite dev server
+      "https://manhwa-study-cards-48.lovable.app"
     ],
     "allow_headers": ["*"],
     "expose_headers": ["*"],
