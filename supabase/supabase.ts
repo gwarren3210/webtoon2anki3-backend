@@ -1360,7 +1360,7 @@ export const login = api.raw({
     res.end(JSON.stringify({ error: error?.message || "Invalid credentials" }));
     return;
   }
-  res.setHeader('Set-Cookie', `sb-access-token=${data.session.access_token}; HttpOnly; Path=/; SameSite=Lax; Max-Age=604800`);
+  res.setHeader('Set-Cookie', `sb-access-token=${data.session.access_token}; HttpOnly; Path=/; SameSite=None; Secure; Max-Age=604800`);
   res.setHeader('Content-Type', 'application/json');
   res.end(JSON.stringify({ user: { id: data.user.id, email: data.user.email ?? "" } }));
 });
