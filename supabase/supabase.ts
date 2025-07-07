@@ -1316,11 +1316,6 @@ export const endStudySessionApi = api<{ sessionId: string }, { success: boolean 
   return { success: true };
 });
 
-// Add /supabase/auth/signup endpoint
-// Add /supabase/auth/login endpoint
-// Add /supabase/auth/logout endpoint
-// Move /auth/session to /supabase/auth/session
-// ... existing code ... 
 
 /**
  * Registers a new user securely via Supabase Admin API.
