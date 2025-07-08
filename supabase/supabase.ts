@@ -1161,7 +1161,7 @@ export const startStudySessionApi = api<{
 }, async ({ userId, publicId }) => {
   try {
     const parsedId = parsePublicId(publicId);
-    log.info("Public Id: ", publicId)
+    log.info("Public Id: ", ...publicId)
     let chapterWords;
     let progressMap;
     let vocabWithProgress;

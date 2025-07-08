@@ -59,7 +59,9 @@ export async function createSession(userId: string, deckPublicId: string): Promi
     .select('id')
     .single();
   if (error || !data) {
+    log.error("Failed to create session", { userId, deckPublicId, error });
     throw new Error('Failed to create session');
   }
+  log.info("Session created", { userId, deckPublicId, sessionId: data.id });
   return data.id;
 } 
