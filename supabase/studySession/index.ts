@@ -21,13 +21,13 @@ import { supabase } from "../client";
  */
 export async function startStudySession(
   userId: string,
-  deckId: string,
+  deckPublicId: string,
   vocabWithProgress: VocabularyWithProgress[]
 ): Promise<SessionState> {
   // Use CardScheduler to create buckets and pass to ActiveStudySession
   const scheduler = new CardScheduler(vocabWithProgress);
   // The allCards param is not used in the new bucket-based logic, so pass an empty array
-  const session = new ActiveStudySession(userId, deckId, [], scheduler);
+  const session = new ActiveStudySession(userId, deckPublicId, [], scheduler);
   const state = session.getState();
   await saveSessionState(state);
   log.info("Session started and saved", { sessionId: state.sessionId });

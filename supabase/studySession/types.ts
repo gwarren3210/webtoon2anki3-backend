@@ -233,7 +233,7 @@ export interface ProgressStats {
 export interface SessionState {
   sessionId: string;
   userId: string;
-  deckId: string;
+  deckPublicId: string;
   // cards: Card[]; // Deprecated: use queues instead
   queues: SessionQueues;
   progress: ProgressStats;

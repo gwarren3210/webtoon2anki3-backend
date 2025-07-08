@@ -18,6 +18,19 @@ import type {
   LogoutRequest, LogoutResponse,
   SessionRequest, SessionResponse 
 } from "./supabaseEndpoints";
+import { 
+  parsePublicId,
+  getSeriesBySlug,
+  getChapterByNumber,
+  getChaptersBySeries,
+  getDeckByChapter,
+  getDecksByChapters,
+  getChapterWords as getChapterWordsHelper,
+  getUserProgress,
+  createMissingProgressRecords,
+  selectStudyWords,
+  buildVocabularyWithProgress,
+} from './studySession/utils';
 
 /* export interface FSRSProgress {
   id: string;logic options+
@@ -1055,9 +1068,38 @@ export const createDeck = api<CreateDeckRequest, CreateDeckResponse>({
     throw APIError.internal("Failed to create deck").withDetails({ error: deckError?.message });
   }
 
-  // NOTE: This function no longer creates SRS progress records.
-  // FSRS progress will be created on-the-fly when a study session starts.
-  // We also no longer populate the `deck_words` join table as it's part of the legacy SM-2 system.
+  // Create fsrs_progress records for all words in the deck for this user if not already present
+  const wordIds = selectedWords.map((w: any) => w.id);
+  if (wordIds.length > 0) {
+    // Find existing progress records for this user and these words
+    const { data: existingProgress, error: progressError } = await supabase
+      .from('fsrs_progress')
+      .select('vocabulary_id')
+      .eq('user_id', userId)
+      .in('vocabulary_id', wordIds);
+    if (progressError) {
+      throw APIError.internal('Failed to check existing progress records').withDetails({ error: progressError.message });
+    }
+    const existingWordIds = new Set((existingProgress || []).map((p: any) => p.vocabulary_id));
+    const missingWordIds = wordIds.filter((id: string) => !existingWordIds.has(id));
+    if (missingWordIds.length > 0) {
+      const now = new Date().toISOString();
+      const newProgressRecords = missingWordIds.map((vocabulary_id: string) => ({
+        user_id: userId,
+        vocabulary_id,
+        due: now,
+        stability: 0,
+        difficulty: 0,
+        state: 0, // FSRSState.New
+      }));
+      const { error: insertError } = await supabase
+        .from('fsrs_progress')
+        .insert(newProgressRecords);
+      if (insertError) {
+        throw APIError.internal('Failed to create new progress records').withDetails({ error: insertError.message });
+      }
+    }
+  }
 
   return { deck, cards: selectedWords };
 });
@@ -1119,121 +1161,92 @@ export const devWatch = api<{}, DevWatchResponse>({
 // FSRS Study Session Endpoints
 // =============================
 
-/**
- * Starts a new study session for a user and deck.
- * @route POST /study/session/start
- * @body { userId: string, deckId: string }
- * @returns { sessionState: SessionState }
- */
-export const startStudySessionApi = api<{ userId: string; deckId: string }, { sessionState: any }>({
-    method: "POST",
-    path: "/study/session/start",
-    expose: true,
-}, async ({ userId, deckId }) => {
-    // 1. Find the chapter associated with the deck
-    const { data: deck, error: deckError } = await supabase.from('decks').select('chapter_id').eq('id', deckId).single();
-    if (deckError || !deck) {
-        throw APIError.notFound("Deck not found.");
-    }
-    const chapterId = deck.chapter_id;
+const STUDY_SESSION_LIMITS = {
+  MAX_NEW_WORDS: 20,
+  MAX_TOTAL_WORDS: 50,
+} as const;
 
-    // 2. Get all word IDs and word data from that chapter
-    const { data: chapterWords, error: wordsError } = await supabase
-        .from('chapter_words')
-        .select('word_id, importance_score, words!inner(id, word, definition)')
-        .eq('chapter_id', chapterId);
-
-    if (wordsError) throw APIError.internal("Failed to get chapter words for session").withDetails({ error: wordsError.message });
-    if (!chapterWords) throw APIError.notFound("No words found for this deck's chapter.");
-
-    log.info('chapterWords', { length: chapterWords.length, sample: chapterWords[0] });
-
-    const wordIds = chapterWords.map(cw => cw.word_id);
-    
-    // 3. Fetch existing FSRS progress for these words for the user
-    const { data: progressData, error: progressError } = await supabase
+export const startStudySessionApi = api<{
+  userId: string;
+  publicId: string;
+}, { sessionState: any }>({
+  method: "POST",
+  path: "/study/session/start",
+  expose: true,
+}, async ({ userId, publicId }) => {
+  try {
+    const parsedId = parsePublicId(publicId);
+    let chapterWords;
+    let progressMap;
+    let vocabWithProgress;
+    if (parsedId.type === 'all') {
+      // Simpler logic: get all fsrs_progress for the user
+      const { data: progressData, error: progressError } = await supabase
         .from('fsrs_progress')
         .select('*')
-        .eq('user_id', userId)
-        .in('vocabulary_id', wordIds);
-        
-    if (progressError) throw APIError.internal("Failed to get user progress").withDetails({ error: progressError.message });
-    
-    log.info('progressData', { length: progressData ? progressData.length : 0, sample: progressData && progressData[0] });
-
-    // 4. For any words the user hasn't seen, create a new progress record in the database
-    const progressMap = new Map((progressData || []).map(p => [p.vocabulary_id, p]));
-    const wordsWithoutProgress = chapterWords.filter(cw => !progressMap.has(cw.word_id));
-
-    log.info('wordsWithoutProgress', { length: wordsWithoutProgress.length, sample: wordsWithoutProgress[0] });
-
-    if (wordsWithoutProgress.length > 0) {
-        const newProgressRecords = wordsWithoutProgress.map(cw => ({
-            user_id: userId,
-            vocabulary_id: cw.word_id,
-            due: new Date().toISOString(),
-            stability: 0,
-            difficulty: 0,
-            state: 0, // FSRSState.New
-        }));
-
-        const { data: insertedProgress, error: insertError } = await supabase
-            .from('fsrs_progress')
-            .insert(newProgressRecords)
-            .select();
-
-        if (insertError) throw APIError.internal("Failed to create new progress records").withDetails({ error: insertError.message });
-
-        // Add the newly created progress records to our map
-        (insertedProgress || []).forEach(p => progressMap.set(p.vocabulary_id, p));
+        .eq('user_id', userId);
+      if (progressError || !progressData || progressData.length === 0) {
+        throw APIError.notFound('No study progress found for this user');
+      }
+      const wordIds = progressData.map((p: any) => p.vocabulary_id);
+      // Fetch word data for these vocabulary IDs
+      const { data: words, error: wordsError } = await supabase
+        .from('words')
+        .select('id, word, definition')
+        .in('id', wordIds);
+      if (wordsError || !words || words.length === 0) {
+        throw APIError.notFound('No words found for this user');
+      }
+      // Build chapterWords array (minimal fields)
+      chapterWords = wordIds.map((id: string) => {
+        const word = words.find((w: any) => w.id === id);
+        return {
+          word_id: id,
+          importance_score: 0,
+          words: word || { id, word: '', definition: '' },
+        };
+      });
+      progressMap = new Map((progressData || []).map(p => [p.vocabulary_id, p]));
+    } else if (parsedId.type === 'chapter') {
+      const series = await getSeriesBySlug(parsedId.seriesSlug);
+      const chapter = await getChapterByNumber(series.id, parsedId.chapterNumber);
+      chapterWords = await getChapterWordsHelper([chapter.id]);
+      const wordIds = chapterWords.map(cw => cw.word_id);
+      const progressData = await getUserProgress(userId, wordIds);
+      progressMap = new Map((progressData || []).map(p => [p.vocabulary_id, p]));
+      await createMissingProgressRecords(userId, chapterWords, progressMap);
+    } else if (parsedId.type === 'series') {
+      const series = await getSeriesBySlug(parsedId.seriesSlug);
+      const chapters = await getChaptersBySeries(series.id);
+      const chapterIds = chapters.map(c => c.id);
+      chapterWords = await getChapterWordsHelper(chapterIds);
+      const wordIds = chapterWords.map(cw => cw.word_id);
+      const progressData = await getUserProgress(userId, wordIds);
+      progressMap = new Map((progressData || []).map(p => [p.vocabulary_id, p]));
+      await createMissingProgressRecords(userId, chapterWords, progressMap);
+    } else {
+      throw APIError.invalidArgument("Invalid session type");
     }
-    
-    // 5. Build the final array of vocabulary with their progress
-    const MAX_NEW_WORDS = 20;
-    const MAX_TOTAL_WORDS = 50;
-    // 1. Separate new and non-new cards
-    const newWords = chapterWords.filter(cw => {
-      const progress = progressMap.get(cw.word_id);
-      return progress && progress.state === FSRSState.New;
-    }).slice(0, MAX_NEW_WORDS);
-
-    const nonNewWords = chapterWords.filter(cw => {
-      const progress = progressMap.get(cw.word_id);
-      return progress && progress.state !== FSRSState.New;
-    }).sort((a, b) => {
-      const progressA = progressMap.get(a.word_id);
-      const progressB = progressMap.get(b.word_id);
-      return new Date(progressA.due).getTime() - new Date(progressB.due).getTime();
-    });
-
-    // 2. Combine, prioritizing non-new cards first (or reverse if you want new first)
-    const selectedWords = [...nonNewWords, ...newWords].slice(0, MAX_TOTAL_WORDS);
-
-    // 3. Map to vocabWithProgress
-    const vocabWithProgress: VocabularyWithProgress[] = selectedWords.map(cw => {
-      const progress = progressMap.get(cw.word_id);
-      return {
-        vocabulary: {
-          id: (cw.words as any).id,
-          korean: (cw.words as any).word,
-          english: (cw.words as any).definition,
-          importanceScore: cw.importance_score || 0,
-        },
-        studyProgress: {
-          ...progress,
-          due: new Date(progress.due),
-          last_review: progress.last_review ? new Date(progress.last_review) : undefined,
-        } as FSRSProgress,
-        isDue: new Date(progress.due) <= new Date(),
-        daysUntilReview: Math.max(0, (new Date(progress.due).getTime() - new Date().getTime()) / (1000 * 3600 * 24))
-      };
-    });
-
-    log.info('vocabWithProgress', { length: vocabWithProgress.length, sample: vocabWithProgress[0] });
-    // 6. Start the session with the fully populated data
-    const sessionState = await startStudySession(userId, deckId, vocabWithProgress);
-    // Optionally, you can flatten the queues for frontend compatibility
+    const selectedWords = selectStudyWords(
+      chapterWords,
+      progressMap,
+      STUDY_SESSION_LIMITS.MAX_NEW_WORDS,
+      STUDY_SESSION_LIMITS.MAX_TOTAL_WORDS
+    );
+    vocabWithProgress = buildVocabularyWithProgress(selectedWords, progressMap);
+    const sessionState = await startStudySession(userId, publicId, vocabWithProgress);
     return { sessionState: reviveSessionState(sessionState) };
+  } catch (error: any) {
+    log.error('Study session creation failed', {
+      userId,
+      publicId,
+      error: error.message,
+    });
+    if (error instanceof APIError) {
+      throw error;
+    }
+    throw APIError.internal("Failed to start study session").withDetails({ originalError: error.message });
+  }
 });
 
 
@@ -1520,17 +1533,17 @@ export const getBulkDeckStats = api<GetBulkDeckStatsRequest, GetBulkDeckStatsRes
   if (decksError) throw APIError.internal("Failed to fetch decks").withDetails({ error: decksError.message });
   if (!decks || decks.length === 0) return { stats: [] };
 
-  // Get chapter and series info for images
+  // Get chapter and series info for images and metadata
   const chapterIds = decks.map((d: any) => d.chapter_id).filter(Boolean);
   const { data: chapters, error: chaptersError } = await supabase
     .from('chapters')
-    .select('id, series_id')
+    .select('id, series_id, difficulty, chapter_number')
     .in('id', chapterIds);
   if (chaptersError) throw APIError.internal("Failed to fetch chapters").withDetails({ error: chaptersError.message });
   const seriesIds = chapters.map((c: any) => c.series_id).filter(Boolean);
   const { data: series, error: seriesError } = await supabase
     .from('series')
-    .select('id, picture')
+    .select('id, picture, name, korean_name')
     .in('id', seriesIds);
   if (seriesError) throw APIError.internal("Failed to fetch series").withDetails({ error: seriesError.message });
 
@@ -1564,10 +1577,14 @@ export const getBulkDeckStats = api<GetBulkDeckStatsRequest, GetBulkDeckStatsRes
       if (!p.due) return earliest;
       return !earliest || new Date(p.due) < new Date(earliest) ? p.due : earliest;
     }, null);
-    // Find series image
+    // Find series image and metadata
     const chapter = chapters.find((c: any) => c.id === deck.chapter_id);
     const seriesObj = chapter && series.find((s: any) => s.id === chapter.series_id);
+    const publicId = `series:${seriesObj?.name || ''}:chapter:${chapter?.chapter_number || ''}`;
+    const chapterNumber = chapter?.chapter_number
     deckStats.push({
+      publicId,
+      chapterNumber,
       deckId: deck.id,
       totalCards,
       dueCards,
@@ -1575,6 +1592,9 @@ export const getBulkDeckStats = api<GetBulkDeckStatsRequest, GetBulkDeckStatsRes
       lastStudied,
       nextReview,
       seriesImage: seriesObj ? seriesObj.picture : null,
+      seriesName: seriesObj ? seriesObj.name : '',
+      seriesKoreanName: seriesObj ? seriesObj.korean_name : '',
+      difficulty: chapter ? chapter.difficulty || '' : '',
     });
   }
   return { stats: deckStats };

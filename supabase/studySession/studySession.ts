@@ -28,6 +28,7 @@ import { FSRSState } from '../fsrs/types';
 export class ActiveStudySession {
   private state: SessionState;
   private queues: SessionQueues;
+  private allCards: Card[];
   private bucketOrder: (FSRSState)[] = [
     FSRSState.Learning,
     FSRSState.Review,
@@ -38,15 +39,16 @@ export class ActiveStudySession {
 
   constructor(
     userId: string,
-    deckId: string,
+    deckPublicId: string,
     allCards: Card[],
     scheduler: CardScheduler
   ) {
     this.queues = scheduler.createSessionBuckets();
+    this.allCards = allCards;
     this.state = {
       sessionId: uuidv4(),
       userId,
-      deckId,
+      deckPublicId,
       queues: this.queues,
       progress: {
         reviewed: 0,
@@ -132,7 +134,7 @@ export class ActiveStudySession {
   public static fromState(state: SessionState): ActiveStudySession {
     // Rehydrate queues from state
     const scheduler = new CardScheduler([], { maxCards: 0 });
-    const session = new ActiveStudySession(state.userId, state.deckId, [], scheduler);
+    const session = new ActiveStudySession(state.userId, state.deckPublicId, [], scheduler);
     session.state = state;
     session.queues = state.queues;
     return session;

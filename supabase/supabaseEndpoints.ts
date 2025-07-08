@@ -309,7 +309,7 @@ export interface DevWatchResponse {
 // Study Session endpoints
 export interface StartStudySessionRequest {
   userId: string;
-  deckId: string;
+  publicId: string;
 }
 export interface StartStudySessionResponse {
   sessionState: SessionState;
@@ -356,12 +356,17 @@ export interface UpdateUserProfileResponse {
 // Bulk Deck Stats endpoint
 export interface DeckStats {
   deckId: string;
+  publicId: string;
+  chapterNumber: string;
   totalCards: number;
   dueCards: number;
   progress: number; // percent complete
   lastStudied: string | null;
   nextReview: string | null;
   seriesImage: string | null;
+  seriesName: string;
+  seriesKoreanName: string;
+  difficulty: string;
 }
 export interface GetBulkDeckStatsRequest {
   userId: string;
