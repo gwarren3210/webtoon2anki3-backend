@@ -28,7 +28,7 @@ export function parsePublicId(publicId: string):
   | { type: 'chapter'; seriesSlug: string; chapterNumber: string }
   | { type: 'series'; seriesSlug: string }
 {
-  if (publicId === 'all') {
+  if (publicId === 'series:all:chapter:undefined') {
     return { type: 'all' };
   }
   const chapterMatch = publicId.match(/^series:([^:]+):chapter:(.+)$/);
