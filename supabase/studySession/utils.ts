@@ -68,7 +68,7 @@ export async function getChapterByNumber(seriesId: string, chapterNumber: string
     .eq('chapter_number', chapterNumber)
     .single();
   if (error || !chapter) {
-    throw APIError.notFound(`Chapter '${chapterNumber}' not found`);
+    throw APIError.notFound(`Chapter '${chapterNumber}' not found`).withDetails(error);
   }
   return chapter;
 }
