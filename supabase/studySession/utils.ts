@@ -65,7 +65,7 @@ export async function getChapterByNumber(seriesId: string, chapterNumber: string
     .from('chapters')
     .select('id, series_id, number')
     .eq('series_id', seriesId)
-    .eq('number', chapterNumber)
+    .eq('chapter_number', chapterNumber)
     .single();
   if (error || !chapter) {
     throw APIError.notFound(`Chapter '${chapterNumber}' not found`);
