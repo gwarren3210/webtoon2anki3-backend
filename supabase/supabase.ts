@@ -983,21 +983,6 @@ export const previewDeck = api<PreviewDeckRequest, PreviewDeckResponse>({
   return { deck, cards: cards || [] };
 });
 
-// --- DeckWords SRS fields ---
-interface DeckWordSRSFields {
-  state: string; // StudyState
-  interval: number;
-  eFactor: number;
-  consecutiveCorrect: number;
-  consecutiveIncorrect: number;
-  totalReviews: number;
-  nextReviewDate: string; // ISO date
-  lastReviewedDate?: string; // ISO date
-  firstSeenDate: string; // ISO date
-  createdAt: string; // ISO date
-  updatedAt: string; // ISO date
-}
-
 import { supabaseUrl } from "./client";
 
 // --- Create Deck endpoint (refactored for deck_words join table) ---

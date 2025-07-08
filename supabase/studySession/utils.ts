@@ -60,10 +60,10 @@ export async function getSeriesBySlug(slug: string): Promise<{ id: string; slug:
 /**
  * Fetches a chapter by series ID and chapter number.
  */
-export async function getChapterByNumber(seriesId: string, chapterNumber: string): Promise<{ id: string; series_id: string; number: string }> {
+export async function getChapterByNumber(seriesId: string, chapterNumber: string): Promise<{ id: string; series_id: string; chapter_number: string }> {
   const { data: chapter, error } = await supabase
     .from('chapters')
-    .select('id, series_id, number')
+    .select('id, series_id, chapter_number')
     .eq('series_id', seriesId)
     .eq('chapter_number', chapterNumber)
     .single();
