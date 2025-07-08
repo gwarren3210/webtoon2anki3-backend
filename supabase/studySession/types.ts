@@ -231,7 +231,7 @@ export interface ProgressStats {
 
 // SessionState: In-memory session object
 export interface SessionState {
-  sessionId: string;
+  id: string;
   userId: string;
   deckPublicId: string;
   // cards: Card[]; // Deprecated: use queues instead

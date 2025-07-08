@@ -8,7 +8,7 @@ import { ActiveStudySession } from './studySession';
 import { VocabularyWithProgress, SessionState, Card } from './types';
 import { Rating, FSRSProgress, FSRSReviewLog } from '../fsrs/types';
 import { CardScheduler } from './cardScheduler';
-import { saveSessionState, getSessionState, deleteSessionState } from "../sessionManager";
+import { saveSessionState, getSessionState, deleteSessionState, createSession } from "../sessionManager";
 import log from "encore.dev/log";
 import { supabase } from "../client";
 
@@ -24,14 +24,14 @@ export async function startStudySession(
   deckPublicId: string,
   vocabWithProgress: VocabularyWithProgress[]
 ): Promise<SessionState> {
-  // Use CardScheduler to create buckets and pass to ActiveStudySession
+  // Use the sessionManager to create a new session and get the sessionId
+  const sessionId = await createSession(userId, deckPublicId);
   const scheduler = new CardScheduler(vocabWithProgress);
-  // The allCards param is not used in the new bucket-based logic, so pass an empty array
-  const session = new ActiveStudySession(userId, deckPublicId, [], scheduler);
-  const state = session.getState();
-  await saveSessionState(state);
-  log.info("Session started and saved", { sessionId: state.sessionId });
-  return state;
+  const session = new ActiveStudySession(userId, sessionId, deckPublicId, [], scheduler);
+  const sessionState = session.getState();
+  await saveSessionState(sessionState);
+  log.info("Session started and saved", { sessionId: sessionState.id });
+  return sessionState;
 }
 
 /**
@@ -44,13 +44,13 @@ export async function gradeCard(
   sessionId: string,
   rating: Rating
 ): Promise<{ newState: SessionState; updatedProgress: FSRSProgress; reviewLog: FSRSReviewLog }> {
-  const state = await getSessionState(sessionId);
-  if (!state) {
+  const sessionState = await getSessionState(sessionId);
+  if (!sessionState) {
     log.error("Session not found for grading", { sessionId });
     throw new Error('Session not found.');
   }
   // Re-hydrate the ActiveStudySession instance from its state (now uses queues)
-  const session = ActiveStudySession.fromState(state);
+  const session = ActiveStudySession.fromState(sessionState);
   // Grade the card. This mutates the session's state internally.
   const gradeResult = session.gradeCard(rating);
   if (!gradeResult) {
@@ -61,6 +61,23 @@ export async function gradeCard(
   const newState = session.getState();
   await saveSessionState(newState);
   log.info("Session graded and saved", { sessionId });
+
+  // --- Insert review log into fsrs_review_logs table ---
+  // Convert date fields to ISO strings for DB compatibility
+  const logToInsert = {
+    ...reviewLog,
+    due: reviewLog.due instanceof Date ? reviewLog.due.toISOString() : reviewLog.due,
+    review: reviewLog.review instanceof Date ? reviewLog.review.toISOString() : reviewLog.review,
+  };
+  const { error: logError } = await supabase
+    .from("fsrs_review_logs")
+    .upsert([logToInsert], { onConflict: "id" });
+  if (logError) {
+    log.error("Failed to upsert FSRS review log on grade", { sessionId, error: logError });
+  } else {
+    log.info("Upserted FSRS review log on grade", { sessionId, logId: reviewLog.id });
+  }
+
   // The results are returned to be persisted to the database by the caller.
   return { newState, updatedProgress, reviewLog };
 }
@@ -70,24 +87,24 @@ export async function gradeCard(
  * @param sessionId The ID of the session to end.
  */
 export async function endStudySession(sessionId: string): Promise<void> {
-  const state = await getSessionState(sessionId);
-  if (state) {
+  const sessionState = await getSessionState(sessionId);
+  if (sessionState) {
     // In a real app, you would finalize stats and persist the results.
     // For now, we just log it.
-    console.log(`Ending session ${sessionId}. Reviewed ${state.progress.reviewed} cards.`);
+    console.log(`Ending session ${sessionId}. Reviewed ${sessionState.progress.reviewed} cards.`);
     // sessionManager.deleteSession(sessionId); // Or mark as inactive
   }
 }
 
 export async function finishStudySession(sessionId: string): Promise<void> {
-  const state = await getSessionState(sessionId);
-  if (!state) {
+  const sessionState = await getSessionState(sessionId);
+  if (!sessionState) {
     log.error("Session not found for finish", { sessionId });
     throw new Error("Session not found.");
   }
   // Gather all FSRSProgress from queues
   const allProgress: any[] = [];
-  for (const bucket of Object.values(state.queues)) {
+  for (const bucket of Object.values(sessionState.queues)) {
     for (const card of bucket) {
       if (card.studyProgress) {
         allProgress.push({
@@ -111,24 +128,7 @@ export async function finishStudySession(sessionId: string): Promise<void> {
       log.info("Upserted FSRS progress on finish", { sessionId, count: allProgress.length });
     }
   }
-  // Upsert all review logs if present
-  if ((state as any).reviewLogs && Array.isArray((state as any).reviewLogs)) {
-    const logs = (state as any).reviewLogs.map((log: any) => ({
-      ...log,
-      due: (log.due instanceof Date) ? log.due.toISOString() : log.due,
-      review: (log.review instanceof Date) ? log.review.toISOString() : log.review,
-    }));
-    if (logs.length > 0) {
-      const { error: logError } = await supabase
-        .from("fsrs_review_logs")
-        .upsert(logs, { onConflict: "id" });
-      if (logError) {
-        log.error("Failed to upsert FSRS review logs on finish", { sessionId, error: logError });
-      } else {
-        log.info("Upserted FSRS review logs on finish", { sessionId, count: logs.length });
-      }
-    }
-  }
+  // --- Removed reviewLogs upsert logic ---
   await deleteSessionState(sessionId);
   log.info("Session finished and deleted", { sessionId });
 }

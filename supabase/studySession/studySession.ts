@@ -39,6 +39,7 @@ export class ActiveStudySession {
 
   constructor(
     userId: string,
+    sessionId: string,
     deckPublicId: string,
     allCards: Card[],
     scheduler: CardScheduler
@@ -46,7 +47,7 @@ export class ActiveStudySession {
     this.queues = scheduler.createSessionBuckets();
     this.allCards = allCards;
     this.state = {
-      sessionId: uuidv4(),
+      id: sessionId,
       userId,
       deckPublicId,
       queues: this.queues,
@@ -134,7 +135,7 @@ export class ActiveStudySession {
   public static fromState(state: SessionState): ActiveStudySession {
     // Rehydrate queues from state
     const scheduler = new CardScheduler([], { maxCards: 0 });
-    const session = new ActiveStudySession(state.userId, state.deckPublicId, [], scheduler);
+    const session = new ActiveStudySession(state.userId, state.id, state.deckPublicId, [], scheduler);
     session.state = state;
     session.queues = state.queues;
     return session;
@@ -268,12 +269,12 @@ export function createStudySession(userId: string, config: StudySessionConfig): 
 
   validateSessionConfig(config);
 
-  // Generate session ID (in a real app, this would come from the database)
-  const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  // TODO: Generate session ID (in a real app, this would come from the database)
+  const id = `session_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 
   // Create new session
   const session: StudySession = {
-    id: sessionId,
+    id,
     userId,
     startTime: new Date(),
     cardsStudied: 0,
