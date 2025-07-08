@@ -1543,7 +1543,7 @@ export const getBulkDeckStats = api<GetBulkDeckStatsRequest, GetBulkDeckStatsRes
   const seriesIds = chapters.map((c: any) => c.series_id).filter(Boolean);
   const { data: series, error: seriesError } = await supabase
     .from('series')
-    .select('id, picture, name, korean_name')
+    .select('id, picture, name, korean_name, slug')
     .in('id', seriesIds);
   if (seriesError) throw APIError.internal("Failed to fetch series").withDetails({ error: seriesError.message });
 
@@ -1581,7 +1581,8 @@ export const getBulkDeckStats = api<GetBulkDeckStatsRequest, GetBulkDeckStatsRes
     const chapter = chapters.find((c: any) => c.id === deck.chapter_id);
     const seriesObj = chapter && series.find((s: any) => s.id === chapter.series_id);
     const publicId = `series:${seriesObj?.name || ''}:chapter:${chapter?.chapter_number || ''}`;
-    const chapterNumber = chapter?.chapter_number
+    const chapterNumber = chapter?.chapter_number;
+    const seriesSlug = seriesObj?.slug;
     deckStats.push({
       publicId,
       chapterNumber,
@@ -1593,6 +1594,7 @@ export const getBulkDeckStats = api<GetBulkDeckStatsRequest, GetBulkDeckStatsRes
       nextReview,
       seriesImage: seriesObj ? seriesObj.picture : null,
       seriesName: seriesObj ? seriesObj.name : '',
+      seriesSlug,
       seriesKoreanName: seriesObj ? seriesObj.korean_name : '',
       difficulty: chapter ? chapter.difficulty || '' : '',
     });

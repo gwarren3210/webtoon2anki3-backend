@@ -365,6 +365,7 @@ export interface DeckStats {
   nextReview: string | null;
   seriesImage: string | null;
   seriesName: string;
+  seriesSlug: string;
   seriesKoreanName: string;
   difficulty: string;
 }
