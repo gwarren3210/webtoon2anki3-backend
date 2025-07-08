@@ -46,12 +46,11 @@ export async function deleteSessionState(sessionId: string): Promise<void> {
   log.info("Deleted session from Supabase", { sessionId });
 }
 
-export async function createSession(userId: string, deckPublicId: string): Promise<string> {
+export async function createSession(userId: string): Promise<string> {
   const { data, error } = await supabase
     .from('sessions')
     .insert({
       user_id: userId,
-      deck_public_id: deckPublicId,
       state: {}, // initial state, will update after
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -59,9 +58,9 @@ export async function createSession(userId: string, deckPublicId: string): Promi
     .select('id')
     .single();
   if (error || !data) {
-    log.error("Failed to create session", { userId, deckPublicId, error });
+    log.error("Failed to create session", { userId, error });
     throw new Error('Failed to create session');
   }
-  log.info("Session created", { userId, deckPublicId, sessionId: data.id });
+  log.info("Session created", { userId, sessionId: data.id });
   return data.id;
 } 

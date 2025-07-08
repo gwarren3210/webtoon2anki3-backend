@@ -25,7 +25,7 @@ export async function startStudySession(
   vocabWithProgress: VocabularyWithProgress[]
 ): Promise<SessionState> {
   // Use the sessionManager to create a new session and get the sessionId
-  const sessionId = await createSession(userId, deckPublicId);
+  const sessionId = await createSession(userId);
   const scheduler = new CardScheduler(vocabWithProgress);
   const session = new ActiveStudySession(userId, sessionId, deckPublicId, [], scheduler);
   const sessionState = session.getState();
