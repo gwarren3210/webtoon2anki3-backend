@@ -51,7 +51,7 @@ export async function createSession(userId: string): Promise<string> {
     .from('sessions')
     .insert({
       user_id: userId,
-      state: {}, // initial state, will update after
+      state: {},
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     })

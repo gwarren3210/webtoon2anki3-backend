@@ -13,7 +13,8 @@
     "allow_origins_with_credentials": [
       "http://localhost:8080",   // Vite dev server
       "https://localhost:8080",   // Vite dev server
-      "https://manhwa-study-cards-48.lovable.app"
+      "https://manhwa-study-cards-48.lovable.app",
+      "https://webtoon-flashcard-learn-17.lovable.app"
     ],
     "allow_headers": ["*"],
     "expose_headers": ["*"],
