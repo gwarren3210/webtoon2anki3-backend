@@ -1102,6 +1102,7 @@ export const signup = api<SignupRequest, SignupResponse>({
     email_confirm: true,
   });
   if (error) {
+    log.error("Supabase Auth createUser failed", { error });
     throw APIError.internal("failed to create user").withDetails({ error: error.message });
   }
 
@@ -1114,7 +1115,7 @@ export const signup = api<SignupRequest, SignupResponse>({
     .insert({
       user_id: userId,
       display_name: displayName ?? username,
-      username: username,
+      username,
       avatar: null,
       streak: 0,
       created_at: new Date().toISOString(),
@@ -1126,7 +1127,7 @@ export const signup = api<SignupRequest, SignupResponse>({
   // Compose the full User object
   const user = {
     id: userId,
-    username: username,
+    username,
     email,
     displayName: displayName ?? username,
     joinDate: new Date().toISOString(),
