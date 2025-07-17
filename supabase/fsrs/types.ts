@@ -4,9 +4,12 @@
  * This file defines the core data structures used for the FSRS implementation,
  * aligning with the `ts-fsrs` library and our database schema.
  */
-import { State } from 'ts-fsrs';
-
-export { State as FSRSState };
+export enum FSRSState {
+  New = "New",
+  Learning = "Learning",
+  Review = "Review",
+  Relearning = "Relearning",
+}
 
 // { Rating } from 'ts-fsrs'
 export enum Rating {
@@ -35,7 +38,7 @@ export interface FSRSProgress {
   scheduled_days: number;
   reps: number;
   lapses: number;
-  state: State;
+  state: FSRSState;
   last_review?: Date;
   learning_steps: number;
 
@@ -55,7 +58,7 @@ export interface FSRSReviewLog {
   
   // FSRS Log Fields from `ts-fsrs`
   rating: Rating;
-  state: State;
+  state: FSRSState;
   due: Date;
   stability: number;
   difficulty: number;

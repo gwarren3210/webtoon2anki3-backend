@@ -7,12 +7,10 @@
 
 import {
   FSRSProgress,
-  FSRSState,
   FSRSRating,
   FSRSReviewLog,
   FSRSParameters
 } from '../fsrs';
-import { FSRSState as _FSRSState } from '../fsrs/types';
 
 /**
  * Represents the current state of a vocabulary item in the SRS system
@@ -217,10 +215,13 @@ export interface Card {
   studyProgress: FSRSProgress;
 }
 
-// Queues for session state, keyed by FSRSState
 export type SessionQueues = {
-  [key in _FSRSState]: Card[];
-} & { mistakes: Card[] };
+  New: Card[],
+  Learning: Card[],
+  Review: Card[],
+  Relearning: Card[],
+  Mistakes: Card[],
+};
 
 // Progress stats for session
 export interface ProgressStats {

@@ -7,7 +7,6 @@
 import { FSRSProgress, FSRSState } from '../fsrs';
 import { VocabularyWithProgress, Card, SessionQueues } from './types';
 import { isCardDue } from './progressTracker';
-import { FSRSState as FSRSStateType } from '../fsrs/types';
 
 const DEFAULT_SESSION_SIZE = 50;
 const NEW_CARD_PENALTY = 1000; // Arbitrary high penalty to sort new cards last
@@ -79,12 +78,12 @@ export class CardScheduler {
     const daysOverdue = Math.max(0, (now - dueDate) / (1000 * 3600 * 24));
 
     switch (progress.state) {
-      case FSRSStateType.Learning:
-      case FSRSStateType.Relearning:
+      case FSRSState.Learning:
+      case FSRSState.Relearning:
         // Highest priority, sorted by due date
         return dueDate;
       
-      case FSRSStateType.Review:
+      case FSRSState.Review:
         if (dueDate < now) {
           // Overdue reviews, prioritized by how overdue they are
           return now - daysOverdue * 100000; // Heavily weight overdue cards
@@ -93,7 +92,7 @@ export class CardScheduler {
           return dueDate + 1e12; // Push non-overdue reviews to the back
         }
 
-      case FSRSStateType.New:
+      case FSRSState.New:
       default:
         // New cards are sorted last, can be further prioritized by importance score
         return now + 1e13 + (progress.id.charCodeAt(0) * NEW_CARD_PENALTY); // Base sort on something arbitrary
@@ -117,7 +116,7 @@ export class CardScheduler {
       scheduled_days: 0,
       reps: 0,
       lapses: 0,
-      state: FSRSStateType.New,
+      state: FSRSState.New,
       learning_steps: 0,
       createdAt: now,
       updatedAt: now,
@@ -128,13 +127,13 @@ export class CardScheduler {
    * Creates session buckets (queues) for the bucket-based session logic.
    * @returns {SessionQueues} Buckets of cards by learning state.
    */
-  public createSessionBuckets(): SessionQueues {
+  public createSessionBuckets() {
     const buckets: SessionQueues = {
-      [FSRSStateType.New]: [],
-      [FSRSStateType.Learning]: [],
-      [FSRSStateType.Review]: [],
-      [FSRSStateType.Relearning]: [],
-      mistakes: [],
+      New: [],
+      Learning: [],
+      Review: [],
+      Relearning: [],
+      Mistakes: [],
     };
     const now = new Date();
     const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
@@ -147,12 +146,20 @@ export class CardScheduler {
         importanceScore: vwp.vocabulary.importanceScore,
         studyProgress: progress,
       };
-      if (progress.state === FSRSStateType.New) {
-        buckets[FSRSStateType.New].push(card);
+      if (progress.state === FSRSState.New) {
+        buckets.New.push(card);
       } else if (progress.due < tomorrow) {
-        buckets[progress.state]?.push(card);
+        buckets[this.getFSRSStateKey(progress.state)].push(card);
       }
     }
     return buckets;
   }
+
+  // Helper to get the member name from the value
+  private getFSRSStateKey(value: FSRSState): keyof typeof FSRSState {
+    return Object.keys(FSRSState).find(
+      k => FSRSState[k as keyof typeof FSRSState] === value
+    ) as keyof typeof FSRSState;
+  }
+
 } 
