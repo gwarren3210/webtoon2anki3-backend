@@ -2,6 +2,25 @@
 import { SessionState, VocabularyWithProgress, StudyProgress, ProgressStats } from './studySession/types'
 import { Rating, FSRSProgress } from './fsrs/types'
 
+export interface UserStats {
+  totalCards: number;
+  totalSeries: number;
+  streak: number;
+  accuracy: number;
+  weeklyData: Array<{ day: string; cards: number }>;
+  difficultyData: Array<{ difficulty: string; count: number }>;
+}
+
+export interface User {
+  id: string;
+  username: string;
+  email: string;
+  displayName: string;
+  joinDate: string;
+  lastLogin: string;
+  isActive: boolean;
+}
+
 // Define missing interfaces for DB objects
 export interface Vocabulary {
   id: string;
@@ -13,14 +32,31 @@ export interface Vocabulary {
 
 export interface Series {
   id: string;
-  name: string;
+  titleEn: string;
+  titleKr: string;
+  author: string;
+  description: string;
+  genre: string[];
+  difficulty: "beginner" | "intermediate" | "advanced";
+  coverImage: string;
+  totalChapters: number;
+  totalCards: number;
+  avgRating: number;
+  totalLearners: number;
+  status: "ongoing" | "completed";
   createdAt: string;
-  picture: string;
-  synopsis: string;
-  popularity: number
-  genres: JSON[];
-  authors: JSON[];
-  koreanName: string;
+  isTrending: boolean;
+  isNew: boolean;
+}
+
+export interface Chapter {
+  id: string;
+  seriesId: string;
+  chapterNumber: number;
+  titleEn: string;
+  difficulty: "beginner" | "intermediate" | "advanced";
+  cardCount: number;
+  isUnlocked: boolean;
 }
 
 export interface Deck {
@@ -38,7 +74,21 @@ interface Card {
    english: string;
    importanceScore: number;
    studyProgress: FSRSProgress;
- }
+}
+
+export interface StudyCard {
+  id: string;
+  korean: string;
+  english: string;
+  pronunciation: string;
+  exampleSentence?: string;
+  difficulty?: "easy" | "medium" | "hard";
+  learningState: 'new' | 'learning' | 'review' | 'mastered';
+  nextReviewDate: string; // ISO string
+  createdAt: string; // ISO string
+  successRate: number; // (0-100)
+  importanceScore: number;
+}
 
 // Auth endpoints
 export interface GetSessionRequest {
@@ -133,46 +183,33 @@ export interface GetPerformanceStatsResponse {
 }
 
 // Series endpoints
-export interface ListSeriesResponse {
-  series: Array<{ id: string; name: string; createdAt: string }>;
-}
 export interface CreateSeriesRequest {
   name: string;
 }
-export interface CreateSeriesResponse {
-  series: { id: string; name: string; createdAt: string };
+export interface SeriesByIdRequest {
+  seriesId: string;
 }
-export interface SearchSeriesRequest {
-  query: unknown;
+export interface SingleSeriesResponse {
+  series: Series;
 }
-export interface SearchSeriesResponse {
-  series: Array<{ id: string; name: string; createdAt: string }>;
+export interface ArraySeriesResponse {
+  series: Array<Series>;
 }
 export interface ListChaptersRequest {
   seriesId: string;
 }
 export interface ListChaptersResponse {
-  chapters: Array<{
-    id: string;
-    seriesId: string;
-    number: number;
-    title?: string;
-    sourceFile?: string;
-    private?: boolean;
-    difficulty?: string;
-    unlocked: boolean;
-    createdAt: string;
-  }>;
-}
-export interface LockUnlockChapterRequest {
-  seriesId: string;
-  chapterNumber: string;
-}
-export interface LockUnlockChapterResponse {
-  chapter: { id: string; locked: boolean };
+  chapters: Array<Chapter>;
 }
 
 // Card endpoints
+export interface ChapterByIdRequest {
+  chapterId: string
+}
+export interface SingleChapterResponse {
+  chapter: Chapter
+}
+
 export interface AddCardRequest {
   chapterId: string;
   word: string;
@@ -183,16 +220,7 @@ export interface AddCardRequest {
 export interface AddCardResponse {
   newWord: Vocabulary;
 }
-export interface EditCardRequest {
-  cardId: string;
-  word?: string;
-  definition?: string;
-  romanization?: string;
-  example?: string;
-}
-export interface EditCardResponse {
-  card: Card;
-}
+
 export interface DeleteCardRequest {
   cardId: string;
 }
@@ -203,40 +231,32 @@ export interface ListCardsRequest {
   chapterId: string;
 }
 export interface ListCardsResponse {
-  cards: {
-   id: any;
-   word: any;
-   definition: any;
-   created_at: any;
-  }[][];
+  cards: Array<StudyCard>;
 }
 
 // User endpoints
 export interface SignupRequest {
-  email: string;
+  username: string;
   password: string;
+  displayName: string;
 }
 export interface SignupResponse {
   user: unknown;
 }
-export interface LoginRequest {
-  email: string;
+
+export interface LoginCredentials {
+  username: string;
   password: string;
+  rememberMe?: boolean;
+}
+export interface LoginRequest {
+  credentials: LoginCredentials;
 }
 export interface LoginResponse {
-  user: any;
-}
-export interface LogoutRequest {
-  userId: string;
-}
-export interface LogoutResponse {
-  success: boolean;
-}
-export interface SessionRequest {
-  authorization: string;
+  user: User;
 }
 export interface SessionResponse {
-  user: { id: string; email?: string };
+  user: User;
 }
 export interface UserProgressRequest {
   userId: string;
@@ -316,8 +336,10 @@ export interface StartStudySessionResponse {
 }
 export interface GradeCardRequest {
   sessionId: string;
+  cardId: string;
   rating: Rating;
 }
+// TODO fix the mismatched session types (StudySession on frontend)
 export interface GradeCardResponse {
   sessionState: SessionState;
 }
@@ -389,6 +411,106 @@ export interface GetUserActivityResponse {
   activity: UserActivity[];
 }
 
+// User Stats endpoint
+export interface GetUserStatsRequest {
+  userId: string;
+}
+export interface GetUserStatsResponse {
+  stats: UserStats;
+}
+
+// User Library endpoint
+export interface GetUserLibraryRequest {
+  userId: string;
+}
+export interface GetUserLibraryResponse {
+  series: Series[];
+}
+
+// Username Availability endpoint
+export interface CheckUsernameRequest {
+  username: string;
+}
+export interface CheckUsernameResponse {
+  available: boolean;
+}
+
+// User Preferences endpoint
+export interface UserPreferences {
+  // Define your preferences fields here, e.g.:
+  theme: 'light' | 'dark' | 'system';
+  language: string;
+  notifications: boolean;
+  dailyGoal: number;
+  autoPlay: boolean;
+  darkMode: boolean;
+  studyPreferences: {
+    sessionType: 'new' | 'review' | 'mixed';
+    maxCards: number;
+    autoAdvance: boolean;
+    showDifficulty: boolean;
+    enableSounds: boolean;
+  };
+  // Add more as needed
+}
+export interface GetUserPreferencesRequest {
+  userId: string;
+}
+export interface GetUserPreferencesResponse {
+  preferences: UserPreferences;
+}
+
+// User Progress endpoint
+export interface SeriesProgress {
+  seriesId: string;
+  totalChapters: number;
+  completedChapters: number;
+  progressPercent: number;
+  lastStudied?: string;
+  // Add more as needed
+}
+export interface UserChapterProgress {
+  chapterId: string;
+  totalCards: number;
+  reviewedCards: number;
+  progressPercent: number;
+  lastStudied?: string;
+  // Add more as needed
+}
+export interface GetUserProgressRequest {
+  userId: string;
+}
+export interface GetUserProgressResponse {
+  seriesData: Record<string, SeriesProgress>;
+  chapterData: Record<string, UserChapterProgress>;
+}
+
+export interface StudyChapterProgress {
+  seriesId: string;
+  chapterId: string;
+  cardsStudied: number;
+  totalCards: number;
+  accuracy: number;
+  timeSpent: number; // in minutes
+  lastStudied: string;
+  streak: number;
+  isCompleted: boolean;
+}
+// User Progress Update endpoint
+export interface UpdateUserProgressRequest {
+  userId: string;
+  chapterId: string;
+  updatedProgress: StudyChapterProgress;
+}
+export interface UpdateUserProgressResponse {
+  seriesData: Record<string, SeriesProgress>;
+  chapterData: Record<string, StudyChapterProgress>;
+}
+
+// Series Search endpoint
+export interface SearchSeriesQueryRequest {
+  q: string;
+}
 // Endpoint mapping type
 export type SupabaseEndpointMap =
   | { path: "/auth/session"; req: GetSessionRequest; res: GetSessionResponse }
@@ -403,14 +525,14 @@ export type SupabaseEndpointMap =
   | { path: "/supabase/analytics/patterns"; req: {}; res: GetStudyPatternsResponse }
   | { path: "/supabase/analytics/difficulty"; req: {}; res: GetDifficultyAnalysisResponse }
   | { path: "/supabase/analytics/performance"; req: {}; res: GetPerformanceStatsResponse }
-  | { path: "/supabase/series"; req: {}; res: ListSeriesResponse }
-  | { path: "/supabase/series"; req: CreateSeriesRequest; res: CreateSeriesResponse }
-  | { path: "/supabase/series/search"; req: SearchSeriesRequest; res: SearchSeriesResponse }
+  | { path: "/supabase/series"; req: {}; res: ArraySeriesResponse }
+  | { path: "/supabase/series"; req: CreateSeriesRequest; res: SingleSeriesResponse }
+  | { path: "/supabase/series/search"; req: SearchSeriesQueryRequest; res: ArraySeriesResponse }
+  | { path: "/supabase/series/featured"; req: {}; res: ArraySeriesResponse }
+  | { path: "/supabase/series/trending"; req: {}; res: ArraySeriesResponse }
+  | { path: "/supabase/series:seriesId"; req: SeriesByIdRequest; res: SingleSeriesResponse }
   | { path: "/supabase/series/:seriesId/chapters"; req: ListChaptersRequest; res: ListChaptersResponse }
-  | { path: "/supabase/series/:seriesId/chapters/:chapterNumber/lock"; req: LockUnlockChapterRequest; res: LockUnlockChapterResponse }
-  | { path: "/supabase/series/:seriesId/chapters/:chapterNumber/unlock"; req: LockUnlockChapterRequest; res: LockUnlockChapterResponse }
-  | { path: "/supabase/chapters/:chapterId/cards"; req: AddCardRequest; res: AddCardResponse }
-  | { path: "/supabase/cards/:cardId"; req: EditCardRequest; res: EditCardResponse }
+  | { path: "/supabase/chapters/:chapterId"; req: ChapterByIdRequest; res: SingleChapterResponse }
   | { path: "/supabase/cards/:cardId"; req: DeleteCardRequest; res: DeleteCardResponse }
   | { path: "/supabase/chapters/:chapterId/cards"; req: ListCardsRequest; res: ListCardsResponse }
   | { path: "/supabase/users/:userId/progress"; req: UserProgressRequest; res: UserProgressResponse }
@@ -419,18 +541,20 @@ export type SupabaseEndpointMap =
   | { path: "/supabase/decks/:deckId/feature"; req: FeatureDeckRequest; res: FeatureDeckResponse }
   | { path: "/supabase/decks/:deckId/preview"; req: PreviewDeckRequest; res: PreviewDeckResponse }
   | { path: "/supabase/decks"; req: CreateDeckRequest; res: CreateDeckResponse }
-  | { path: "/supabase/dev/seed"; req: {}; res: DevSeedResponse }
-  | { path: "/supabase/dev/reset"; req: {}; res: DevResetResponse }
-  | { path: "/supabase/dev/export"; req: {}; res: DevExportResponse }
-  | { path: "/supabase/dev/watch"; req: {}; res: DevWatchResponse }
   | { path: "/study/session/start"; req: StartStudySessionRequest; res: StartStudySessionResponse }
   | { path: "/study/session/grade"; req: GradeCardRequest; res: GradeCardResponse }
   | { path: "/study/session/end"; req: EndStudySessionRequest; res: EndStudySessionResponse }
   | { path: "/supabase/auth/signup"; req: SignupRequest; res: SignupResponse }
   | { path: "/supabase/auth/login"; req: LoginRequest; res: LoginResponse }
-  | { path: "/supabase/auth/logout"; req: LogoutRequest; res: LogoutResponse }
-  | { path: "/supabase/auth/session"; req: SessionRequest; res: SessionResponse }
+  | { path: "/supabase/auth/logout"; req: {}; res: {} }
+  | { path: "/supabase/auth/me"; req: {}; res: SessionResponse }
+  | { path: "/supabase/auth/check-username/:username"; req: CheckUsernameRequest; res: CheckUsernameResponse }
   | { path: "/users/:userId/profile"; req: GetUserProfileRequest; res: GetUserProfileResponse }
   | { path: "/users/:userId/profile/update"; req: UpdateUserProfileRequest; res: UpdateUserProfileResponse }
   | { path: "/decks/stats"; req: GetBulkDeckStatsRequest; res: GetBulkDeckStatsResponse }
-  | { path: "/users/:userId/activity"; req: GetUserActivityRequest; res: GetUserActivityResponse }; 
+  | { path: "/users/:userId/activity"; req: GetUserActivityRequest; res: GetUserActivityResponse }
+  | { path: "/users/:userId/stats"; req: GetUserStatsRequest; res: GetUserStatsResponse }
+  | { path: "/users/:userId/library"; req: GetUserLibraryRequest; res: GetUserLibraryResponse }
+  | { path: "/user/:userId/progress"; req: GetUserProgressRequest; res: GetUserProgressResponse }
+  | { path: "/supabase/user/preferences"; req: GetUserPreferencesRequest; res: GetUserPreferencesResponse }; 
+

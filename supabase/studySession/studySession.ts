@@ -51,11 +51,16 @@ export class ActiveStudySession {
       userId,
       deckPublicId,
       queues: this.queues,
-      progress: {
+      stats: {
         reviewed: 0,
+        correctCount: 0,
+        totalCards: this.allCards.length,
         grades: [],
       },
       currentCard: null,
+      reviewHistory: [],
+      cardRatings: {},
+      isComplete: false,
       createdAt: new Date(),
       lastActive: new Date(),
     };
@@ -102,9 +107,21 @@ export class ActiveStudySession {
     // Update card's progress in queues
     currentCard.studyProgress = updatedProgress;
     // Update session stats
-    this.state.progress.reviewed++;
-    this.state.progress.grades.push(rating);
+    this.state.stats.reviewed++;
+    this.state.stats.grades.push(rating);
     this.state.lastActive = new Date();
+    // --- New: Update reviewHistory ---
+    this.state.reviewHistory.push({
+      cardId: currentCard.id,
+      rating,
+      reviewedAt: new Date().toISOString(),
+      // Optionally add responseTime, etc.
+    });
+    // --- New: Update cardRatings ---
+    if (!this.state.cardRatings[currentCard.id]) {
+      this.state.cardRatings[currentCard.id] = [];
+    }
+    this.state.cardRatings[currentCard.id].push(rating);
     // If card is due again today, re-insert into the correct bucket
     const now = new Date();
     const due = new Date(updatedProgress.due);
@@ -117,6 +134,8 @@ export class ActiveStudySession {
     }
     // Draw next card
     this.getNextCard();
+    // --- New: Set isComplete if finished ---
+    this.state.isComplete = this.isFinished();
     return { updatedProgress, reviewLog };
   }
 

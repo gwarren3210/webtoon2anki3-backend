@@ -226,7 +226,17 @@ export type SessionQueues = {
 export interface ProgressStats {
   reviewed: number;
   grades: number[];
+  totalCards: number;
+  correctCount: number;
   // ...add more as needed
+}
+
+export interface ReviewEvent {
+  cardId: string;
+  rating: FSRSRating;
+  reviewedAt: string; // ISO string
+  responseTime?: number;
+  // Add more fields as needed
 }
 
 // SessionState: In-memory session object
@@ -234,10 +244,13 @@ export interface SessionState {
   id: string;
   userId: string;
   deckPublicId: string;
-  // cards: Card[]; // Deprecated: use queues instead
-  queues: SessionQueues;
-  progress: ProgressStats;
   currentCard: Card | null;
+  isComplete: boolean;
+  reviewHistory: ReviewEvent[];
+  cardRatings: { [cardId: string]: FSRSRating[] };
+  stats: ProgressStats;
+
+  queues: SessionQueues;
   createdAt: Date;
   lastActive: Date;
 } 
