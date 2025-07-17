@@ -1149,11 +1149,14 @@ export const login = api.raw({
   path: "/supabase/auth/login",
   expose: true,
 }, async (req, res) => {
+  log.info("Login attempt started");
   let body = "";
   for await (const chunk of req) body += chunk;
   const { email, password } = JSON.parse(body);
+  log.info("Login request received", { email });
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error || !data.session) {
+    log.warn("Login failed", { email, error });
     res.statusCode = 401;
     res.end(JSON.stringify({ error: error?.message || "Invalid credentials" }));
     return;
@@ -1165,6 +1168,10 @@ export const login = api.raw({
     .select('*')
     .eq('user_id', data.user.id)
     .maybeSingle();
+
+  if (profileError || !profile) {
+    log.error("User profile not found after successful auth", { userId: data.user.id, profileError });
+  }
 
   // Compose the full User object
   const user = {
@@ -1180,6 +1187,7 @@ export const login = api.raw({
     // ...add any other fields you want to expose
   };
 
+  log.info("Login successful", { userId: user.id, email: user.email });
   res.setHeader('Set-Cookie', `sb-access-token=${data.session.access_token}; HttpOnly; Path=/; SameSite=None; Secure; Max-Age=604800`);
   res.setHeader('Content-Type', 'application/json');
   res.end(JSON.stringify({ user }));
