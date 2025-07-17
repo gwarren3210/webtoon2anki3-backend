@@ -1107,6 +1107,7 @@ export const signup = api<SignupRequest, SignupResponse>({
   }
   const userId = data.user.id;
   // Insert into user_profiles
+  log.info("User authed, creating profile")
   const { error: profileError } = await supabase
     .from('user_profiles')
     .insert({
