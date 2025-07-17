@@ -1278,7 +1278,7 @@ export const checkUsernameAvailability = api<CheckUsernameRequest, CheckUsername
   const { data, error } = await supabase
     .from('user_profiles')
     .select('id')
-    .eq('username.eq', username);
+    .eq('username', username);
   if (error) {
     throw APIError.internal("Failed to check username availability").withDetails({ error: error.message });
   }
