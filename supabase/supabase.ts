@@ -1094,10 +1094,10 @@ export const signup = api<SignupRequest, SignupResponse>({
   method: "POST",
   path: "/supabase/auth/signup",
   expose: true,
-}, async ({ username, password, displayName }) => {
+}, async ({ email, username, password, displayName }) => {
   log.info(username + '@gmail.com')
   const { data, error } = await supabaseAdmin.auth.admin.createUser({
-    email: username + '@gmail.com', // fallback if no email
+    email,
     password,
     email_confirm: true,
     user_metadata: { displayName, username }

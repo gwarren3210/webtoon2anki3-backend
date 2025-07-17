@@ -236,6 +236,7 @@ export interface ListCardsResponse {
 
 // User endpoints
 export interface SignupRequest {
+  email: string;
   username: string;
   password: string;
   displayName: string;
