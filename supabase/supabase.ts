@@ -1099,8 +1099,7 @@ export const signup = api<SignupRequest, SignupResponse>({
   const { data, error } = await supabaseAdmin.auth.admin.createUser({
     email,
     password,
-    email_confirm: true,
-    user_metadata: { displayName, username }
+    //email_confirm: true,
   });
   if (error) {
     throw APIError.internal("failed to create user").withDetails({ error: error.message });
