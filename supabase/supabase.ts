@@ -1096,7 +1096,7 @@ export const signup = api<SignupRequest, SignupResponse>({
   expose: true,
 }, async ({ email, username, password, displayName }) => {
   log.info(username + '@gmail.com')
-  const { data, error } = await supabaseAdmin.auth.admin.createUser({
+  const { data, error } = await supabase.auth.signUp({
     email,
     password,
     //email_confirm: true,
@@ -1104,7 +1104,9 @@ export const signup = api<SignupRequest, SignupResponse>({
   if (error) {
     throw APIError.internal("failed to create user").withDetails({ error: error.message });
   }
-  const userId = data.user.id;
+
+  const userId = data?.user?.id;
+  if(!userId) throw APIError.internal("No user id found")
   // Insert into user_profiles
   log.info("User authed, creating profile")
   const { error: profileError } = await supabase
@@ -1125,7 +1127,7 @@ export const signup = api<SignupRequest, SignupResponse>({
   const user = {
     id: userId,
     username: username,
-    email: data.user.email ?? "",
+    email,
     displayName: displayName ?? username,
     joinDate: new Date().toISOString(),
     lastLogin: new Date().toISOString(),
