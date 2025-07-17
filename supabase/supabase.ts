@@ -630,6 +630,7 @@ export const listChapters = api<ListChaptersRequest, ListChaptersResponse>({
   if (error) {
     throw APIError.internal("failed to list chapters").withDetails({ error: error.message });
   }
+  // TODO figure out unlocking behavior
   return {
     chapters: (data || []).map((c: any) => ({
       id: c.id,
@@ -638,7 +639,7 @@ export const listChapters = api<ListChaptersRequest, ListChaptersResponse>({
       titleEn: c.title,
       difficulty: c.difficulty,
       cardCount: 99,
-      isUnlocked: c.unlocked,
+      isUnlocked: true,
     })),
   };
 });
