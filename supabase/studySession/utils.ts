@@ -1,4 +1,4 @@
-import { SessionState } from "./types";
+import { SessionState, SessionQueues } from "./types";
 import { supabase } from "../client";
 import { APIError } from "encore.dev/api";
 import { FSRSState, FSRSProgress } from "../fsrs/types";
@@ -156,11 +156,35 @@ export function convertToChapter(chapter: any): Chapter {
  */
 export function reviveSessionState(state: SessionState): SessionState {
   log.info('[reviveSessionState] Called', { state });
+  const REQUIRED_QUEUE_KEYS = ['New', 'Learning', 'Review', 'Relearning', 'Mistakes'] as const;
+  // Revive top-level date fields
   const revived = {
     ...state,
     createdAt: new Date(state.createdAt),
     lastActive: new Date(state.lastActive),
-    // Add more fields here if SessionState adds more dates in the future
+    // Revive allCards
+    allCards: state.allCards?.map(card => ({
+      ...card,
+      studyProgress: card.studyProgress ? reviveFSRSProgress(card.studyProgress) : card.studyProgress,
+    })),
+    // Revive queues (object of arrays of cards)
+
+    // In reviveSessionState, replace the queues assignment with:
+    queues: Object.fromEntries(
+      REQUIRED_QUEUE_KEYS.map(key => [
+        key,
+        Array.isArray(state.queues?.[key as keyof typeof state.queues])
+          ? state.queues[key].map(card => ({
+              ...card,
+              studyProgress: card.studyProgress ? reviveFSRSProgress(card.studyProgress) : card.studyProgress,
+            }))
+          : [],
+      ])
+    ) as SessionQueues,
+    // Revive currentCard
+    currentCard: state.currentCard
+      ? { ...state.currentCard, studyProgress: state.currentCard.studyProgress ? reviveFSRSProgress(state.currentCard.studyProgress) : state.currentCard.studyProgress }
+      : state.currentCard,
   };
   log.info('[reviveSessionState] Returning', { revived });
   return revived;
@@ -472,4 +496,14 @@ export async function getCardsWithProgressForChapter(userId: string, chapterId: 
       studyProgress: progress,
     };
   });
+} 
+
+function reviveFSRSProgress(progress: any): FSRSProgress {
+  return {
+    ...progress,
+    due: progress.due ? new Date(progress.due) : new Date(),
+    last_review: progress.last_review ? new Date(progress.last_review) : undefined,
+    createdAt: progress.createdAt ? new Date(progress.createdAt) : new Date(),
+    updatedAt: progress.updatedAt ? new Date(progress.updatedAt) : new Date(),
+  };
 } 
