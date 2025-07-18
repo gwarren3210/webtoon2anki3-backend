@@ -855,6 +855,22 @@ const STUDY_SESSION_LIMITS = {
 function cardToStudyCard(card: Card): StudyCard {
   const { studyProgress } = card;
 
+  // Step 1: Add logging for invalid dates
+  if (!(studyProgress.due instanceof Date) || isNaN(studyProgress.due.getTime())) {
+    log.error("Invalid due in cardToStudyCard", { due: studyProgress.due, card });
+  }
+  if (!(studyProgress.createdAt instanceof Date) || isNaN(studyProgress.createdAt.getTime())) {
+    log.error("Invalid createdAt in cardToStudyCard", { createdAt: studyProgress.createdAt, card });
+  }
+
+  // Step 2: Check for missing fields
+  if (!studyProgress.due) {
+    log.error("Missing due in studyProgress", { studyProgress, card });
+  }
+  if (!studyProgress.createdAt) {
+    log.error("Missing createdAt in studyProgress", { studyProgress, card });
+  }
+
   const getDifficulty = (difficulty: number): 'easy' | 'medium' | 'hard' => {
     if (difficulty <= 0.3) return 'easy';
     if (difficulty <= 0.7) return 'medium';
@@ -962,7 +978,7 @@ export const startStudySessionApi = api<StartStudySessionRequest, StartStudySess
         };
       });
       log.info("[startStudySessionApi] Built chapterWords array", { chapterWords });
-      progressMap = new Map((progressData || []).map(p => [p.vocabulary_id, p]));
+      progressMap = new Map((progressData || []).map(p => [p.vocabulary_id, toFSRSProgress(p)]));
       log.info("[startStudySessionApi] Built progressMap", { progressMapSize: progressMap.size });
     } else if (parsedId.type === 'chapter') {
       log.info("[startStudySessionApi] Session type is 'chapter'");
