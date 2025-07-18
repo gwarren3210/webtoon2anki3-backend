@@ -84,7 +84,7 @@ export interface StudyCard {
   exampleSentence?: string;
   difficulty?: "easy" | "medium" | "hard";
   learningState: 'new' | 'learning' | 'review' | 'mastered';
-  nextReviewDate: string; // ISO string
+  nextReviewDate?: string; // ISO string
   createdAt: string; // ISO string
   successRate: number; // (0-100)
   importanceScore: number;
@@ -229,9 +229,11 @@ export interface DeleteCardResponse {
 }
 export interface ListCardsRequest {
   chapterId: string;
+  userId: string;
 }
 export interface ListCardsResponse {
   cards: Array<StudyCard>;
+  deckExists: boolean;
 }
 
 // User endpoints

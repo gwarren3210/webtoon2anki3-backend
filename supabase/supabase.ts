@@ -674,51 +674,81 @@ export const getChapterById = api<ChapterByIdRequest, SingleChapterResponse>({
 
 // --- Card endpoints ---
 
-// TODO fix by actually using the 
 export const listCards = api<ListCardsRequest, ListCardsResponse>({
   method: "GET",
   path: "/supabase/chapters/:chapterId/cards",
   expose: true,
-}, async ({ chapterId }) => {
-  const { data, error } = await supabase
-    .from('chapter_words')
-    .select(`
-      words (
-        id,
-        word,
-        definition,
-        pronunciation,
-        example,
-        difficulty,
-        state,
-        next_review_date,
-        created_at,
-        importance_score
-      )
-    `)
-    .eq('chapter_id', chapterId);
-
-  if (error) {
-    throw APIError.internal("failed to list cards for chapter").withDetails({ error: error.message });
-  }
-
-  // Map to StudyCard[]
-  const cards: StudyCard[] = (data || []).flatMap(item =>
-    (Array.isArray(item.words) ? item.words : [item.words]).map(w => ({
-      id: w.id,
-      korean: w.word,
-      english: w.definition,
-      pronunciation: w.pronunciation || "",
-      exampleSentence: w.example || "",
-      difficulty: w.difficulty || "medium",
-      learningState: w.state || "new",
-      nextReviewDate: w.next_review_date ? new Date(w.next_review_date).toISOString() : "",
-      createdAt: w.created_at ? new Date(w.created_at).toISOString() : "",
+}, async ({ chapterId, userId }) => {
+  // Check if deck exists for this user/chapter
+  const { data: deck, error: deckError } = await supabase
+    .from('decks')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('chapter_id', chapterId)
+    .maybeSingle();
+  
+  // Get all words for the chapter
+  const chapterWords = await getChapterWordsHelper([chapterId]);
+  
+  if (deckError || !deck) {
+    // Return cards without progress data when deck doesn't exist
+    const cards = chapterWords.map(cw => ({
+      id: cw.words.id,
+      korean: cw.words.word,
+      english: cw.words.definition,
+      pronunciation: '',
+      exampleSentence: '',
+      difficulty: 'medium' as const,
+      learningState: 'new' as const,
+      nextReviewDate: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
       successRate: 100,
-      importanceScore: w.importance_score || 0,
-    }))
-  );
-  return { cards };
+      importanceScore: cw.importance_score || 0,
+    }));
+    return { cards, deckExists: false };
+  }
+  
+  const wordIds = chapterWords.map(cw => cw.word_id);
+  // Get user progress for these words
+  const progressData = await getUserProgressHelper(userId, wordIds);
+  const progressMap = new Map((progressData || []).map(p => [p.vocabulary_id, p]));
+  // Ensure all progress records exist
+  await createMissingProgressRecords(userId, chapterWords, progressMap);
+  // Build cards with progress
+  const cards = buildVocabularyWithProgress(chapterWords, progressMap).map(({ vocabulary, studyProgress }) => {
+    // Map FSRS state to learningState
+    const getLearningState = (state: string): 'new' | 'learning' | 'review' | 'mastered' => {
+      switch (state) {
+        case 'New': return 'new';
+        case 'Learning': return 'learning';
+        case 'Review': return 'review';
+        case 'Relearning': return 'mastered';
+        default: return 'new';
+      }
+    };
+    
+    // Map difficulty to allowed values
+    const getDifficulty = (difficulty: number): 'easy' | 'medium' | 'hard' => {
+      if (difficulty <= 0.3) return 'easy';
+      if (difficulty <= 0.7) return 'medium';
+      return 'hard';
+    };
+
+    return {
+      id: vocabulary.id,
+      korean: vocabulary.korean,
+      english: vocabulary.english,
+      pronunciation: '',
+      exampleSentence: '',
+      difficulty: studyProgress?.difficulty ? getDifficulty(studyProgress.difficulty) : 'medium',
+      learningState: studyProgress?.state ? getLearningState(studyProgress.state) : 'new',
+      nextReviewDate: studyProgress?.due ? new Date(studyProgress.due).toISOString() : undefined,
+      createdAt: studyProgress?.createdAt ? new Date(studyProgress.createdAt).toISOString() : new Date().toISOString(),
+      successRate: 100,
+      importanceScore: vocabulary.importanceScore || 0,
+    };
+  });
+  return { cards, deckExists: true };
 });
 
 // --- User endpoints ---
@@ -930,6 +960,38 @@ export const startStudySessionApi = api<StartStudySessionRequest, StartStudySess
   try {
     const parsedId = parsePublicId(publicId);
     log.info("Public Id: ", ...publicId)
+    
+    // Check/create deck for chapter type sessions
+    if (parsedId.type === 'chapter') {
+      const series = await getSeriesBySlug(parsedId.seriesSlug);
+      const chapter = await getChapterByNumber(series.id, parsedId.chapterNumber);
+      
+      // Check if deck exists for this user/chapter
+      const { data: existingDeck, error: deckError } = await supabase
+        .from('decks')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('chapter_id', chapter.id)
+        .maybeSingle();
+      
+      // Create deck if it doesn't exist
+      if (!existingDeck && !deckError) {
+        const { data: newDeck, error: createError } = await supabase
+          .from('decks')
+          .insert({
+            name: `${series.slug} Chapter ${parsedId.chapterNumber}`,
+            user_id: userId,
+            chapter_id: chapter.id,
+          })
+          .select('id')
+          .single();
+        
+        if (createError || !newDeck) {
+          log.warn('Failed to create deck for user/chapter', { userId, chapterId: chapter.id, error: createError?.message });
+        }
+      }
+    }
+    
     let chapterWords;
     let progressMap;
     let vocabWithProgress;

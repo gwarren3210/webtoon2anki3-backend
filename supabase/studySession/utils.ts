@@ -2,6 +2,26 @@ import { SessionState, VocabularyWithProgress } from "./types";
 import { supabase } from "../client";
 import { APIError } from "encore.dev/api";
 import { FSRSState } from "../fsrs/types";
+import log from "encore.dev/log";
+
+// Define the type for progress data from database
+interface FSRSProgressData {
+  id: string;
+  user_id: string;
+  vocabulary_id: string;
+  due: string;
+  stability: number;
+  difficulty: number;
+  elapsed_days: number;
+  scheduled_days: number;
+  reps: number;
+  lapses: number;
+  state: FSRSState;
+  last_review?: string;
+  learning_steps: number;
+  created_at: string;
+  updated_at: string;
+}
 
 /**
  * Converts string date fields in a SessionState to Date objects.
@@ -139,7 +159,7 @@ export async function getChapterWords(chapterIds: string[]): Promise<any[]> {
 /**
  * Fetches FSRS progress records for a user and a list of vocabulary IDs.
  */
-export async function getUserProgress(userId: string, wordIds: string[]): Promise<any[]> {
+export async function getUserProgress(userId: string, wordIds: string[]): Promise<FSRSProgressData[]> {
   const { data: progressData, error } = await supabase
     .from('fsrs_progress')
     .select('*')
@@ -154,16 +174,16 @@ export async function getUserProgress(userId: string, wordIds: string[]): Promis
 /**
  * Inserts missing FSRS progress records for new words for a user.
  */
-export async function createMissingProgressRecords(userId: string, chapterWords: any[], progressMap: Map<string, any>): Promise<void> {
+export async function createMissingProgressRecords(userId: string, chapterWords: any[], progressMap: Map<string, FSRSProgressData>): Promise<FSRSProgressData[]> {
   const wordsWithoutProgress = chapterWords.filter(cw => !progressMap.has(cw.word_id));
-  if (wordsWithoutProgress.length === 0) return;
+  if (wordsWithoutProgress.length === 0) return [];
   const newProgressRecords = wordsWithoutProgress.map(cw => ({
     user_id: userId,
     vocabulary_id: cw.word_id,
     due: new Date().toISOString(),
     stability: 0,
     difficulty: 0,
-    state: 0, // FSRSState.New
+    state: FSRSState.New,
   }));
   const { data: insertedProgress, error } = await supabase
     .from('fsrs_progress')
@@ -172,7 +192,9 @@ export async function createMissingProgressRecords(userId: string, chapterWords:
   if (error) {
     throw APIError.internal('Failed to create new progress records').withDetails({ error: error.message });
   }
-  (insertedProgress || []).forEach((p: any) => progressMap.set(p.vocabulary_id, p));
+  (insertedProgress || []).forEach((p: FSRSProgressData) => progressMap.set(p.vocabulary_id, p));
+
+  return insertedProgress || [];
 }
 
 /**
@@ -180,7 +202,7 @@ export async function createMissingProgressRecords(userId: string, chapterWords:
  */
 export function selectStudyWords(
   chapterWords: any[],
-  progressMap: Map<string, any>,
+  progressMap: Map<string, FSRSProgressData>,
   maxNewWords: number,
   maxTotalWords: number
 ): any[] {
@@ -194,6 +216,7 @@ export function selectStudyWords(
   }).sort((a, b) => {
     const progressA = progressMap.get(a.word_id);
     const progressB = progressMap.get(b.word_id);
+    if (!progressA || !progressB) return 0;
     return new Date(progressA.due).getTime() - new Date(progressB.due).getTime();
   });
   return [...nonNewWords, ...newWords].slice(0, maxTotalWords);
@@ -202,10 +225,14 @@ export function selectStudyWords(
 /**
  * Builds the final array of vocabulary with their progress for a study session.
  */
-export function buildVocabularyWithProgress(selectedWords: any[], progressMap: Map<string, any>): VocabularyWithProgress[] {
+export function buildVocabularyWithProgress(selectedWords: any[], progressMap: Map<string, FSRSProgressData>): VocabularyWithProgress[] {
   const now = new Date();
   return selectedWords.map(cw => {
     const progress = progressMap.get(cw.word_id);
+    if (!progress) {
+      log.error("[buildVocabularyWithProgress] No Progress Found")
+      throw new Error(`No progress found for word ${cw.word_id}`);
+    }
     const dueDate = new Date(progress.due);
     return {
       vocabulary: {
@@ -215,9 +242,21 @@ export function buildVocabularyWithProgress(selectedWords: any[], progressMap: M
         importanceScore: cw.importance_score || 0,
       },
       studyProgress: {
-        ...progress,
+        id: progress.id,
+        userId: progress.user_id,
+        vocabularyId: progress.vocabulary_id,
         due: dueDate,
+        stability: progress.stability,
+        difficulty: progress.difficulty,
+        elapsed_days: progress.elapsed_days,
+        scheduled_days: progress.scheduled_days,
+        reps: progress.reps,
+        lapses: progress.lapses,
+        state: progress.state,
         last_review: progress.last_review ? new Date(progress.last_review) : undefined,
+        learning_steps: progress.learning_steps,
+        createdAt: new Date(progress.created_at),
+        updatedAt: new Date(progress.updated_at),
       },
       isDue: dueDate <= now,
       daysUntilReview: Math.max(0, (dueDate.getTime() - now.getTime()) / (1000 * 3600 * 24))
