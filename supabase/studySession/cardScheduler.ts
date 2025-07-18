@@ -132,18 +132,14 @@ export class CardScheduler {
     const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
     for (const card of this.cards) {
       const progress = card.studyProgress || this.createPlaceholderProgress(card.id);
-      if (progress.state === FSRSState.New) {
-        log.info('[CardScheduler] Pushing to bucket', { bucket: 'New', cardId: card.id });
-        buckets.New.push(card);
-      } else if (progress.due < tomorrow) {
-        const key = progress.state;
-        log.info('[CardScheduler] Determined bucket key', { key, cardId: card.id, state: progress.state });
-        if (!buckets[key]) {
-          log.error('[CardScheduler] Bucket key does not exist, initializing', { key, cardId: card.id });
-          buckets[key] = [];
-        }
-        buckets[key].push(card);
+      let key = progress.state;
+      const validBuckets = [FSRSState.New, FSRSState.Learning, FSRSState.Review, FSRSState.Relearning, 'Mistakes'];
+      if (!validBuckets.includes(key)) {
+        log.error('[CardScheduler] Invalid bucket key for card, assigning to Learning', { cardId: card.id, state: progress.state });
+        key = FSRSState.Learning;
       }
+      log.info('[CardScheduler] Assigning card to bucket', { cardId: card.id, bucket: key });
+      buckets[key].push(card);
     }
     log.info('[CardScheduler] Buckets created', { buckets });
     return buckets;

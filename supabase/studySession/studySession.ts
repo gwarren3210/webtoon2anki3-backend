@@ -46,7 +46,7 @@ export class ActiveStudySession {
     log.info('[ActiveStudySession] constructor called', { userId, sessionId, deckPublicId, cardsLength: cards.length });
     const scheduler = new CardScheduler(cards);
     this.queues = scheduler.createSessionBuckets();
-    log.info('[ActiveStudySession] Queues initialized', { queues: this.queues });
+    log.info('[ActiveStudySession] Queues initialized', Object.fromEntries(Object.entries(this.queues).map(([k, v]) => [k, Array.isArray(v) ? v.length : 'not array'])));
     this.allCards = scheduler.createSessionDeck();
     this.state = {
       id: sessionId,
@@ -135,23 +135,19 @@ export class ActiveStudySession {
     // If card is due again today, re-insert into the correct bucket
     const now = new Date();
     const due = new Date(updatedProgress.due);
+    const validBuckets = [FSRSState.New, FSRSState.Learning, FSRSState.Review, FSRSState.Relearning, 'Mistakes'];
+    let bucketKey = updatedProgress.state;
+    if (!validBuckets.includes(bucketKey)) {
+      log.error('[ActiveStudySession] Invalid bucket key for graded card, assigning to Learning', { cardId: currentCard.id, state: updatedProgress.state });
+      bucketKey = FSRSState.Learning;
+    }
     if ((due.getTime() - now.getTime()) < 24 * 60 * 60 * 1000) {
       log.info('[ActiveStudySession] Card is due again today', { cardId: currentCard.id, state: updatedProgress.state });
-      if (this.queues[updatedProgress.state]) {
-        log.info('[ActiveStudySession] Pushing card to queue', { state: updatedProgress.state });
-        if (!Array.isArray(this.queues[updatedProgress.state])) {
-          log.error('[ActiveStudySession] Queue is not an array', { state: updatedProgress.state, queue: this.queues[updatedProgress.state] });
-          this.queues[updatedProgress.state] = [];
-        }
-        this.queues[updatedProgress.state].push(currentCard);
-      } else {
-        log.warn('[ActiveStudySession] No queue for state, defaulting to Learning', { state: updatedProgress.state });
-        if (!Array.isArray(this.queues[FSRSState.Learning])) {
-          log.error('[ActiveStudySession] Learning queue is not an array', { queue: this.queues[FSRSState.Learning] });
-          this.queues[FSRSState.Learning] = [];
-        }
-        this.queues[FSRSState.Learning].push(currentCard);
+      if (!Array.isArray(this.queues[bucketKey])) {
+        log.error('[ActiveStudySession] Queue is not an array', { state: bucketKey, queue: this.queues[bucketKey] });
+        this.queues[bucketKey] = [];
       }
+      this.queues[bucketKey].push(currentCard);
     }
     // Draw next card
     this.getNextCard();
