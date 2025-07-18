@@ -1054,13 +1054,13 @@ export const startStudySessionApi = api<StartStudySessionRequest, StartStudySess
       stats: sessionState.stats,
       reviewHistory: sessionState.reviewHistory,
       cardRatings: sessionState.cardRatings,
-      createdAt: sessionState.createdAt,
-      lastActive: sessionState.lastActive,
+      createdAt: sessionState.createdAt.toISOString(),
+      lastActive: sessionState.lastActive.toISOString(),
       cards: studyCards,
       currentCard: sessionState.currentCard ? cardToStudyCard(sessionState.currentCard) : null,
       // Add any other fields the frontend needs
     };
-    return { sessionState: reviveSessionState(sessionState), session: sessionDto };
+    return { session: sessionDto };
   } catch (error: any) {
     log.error('[startStudySessionApi] Study session creation failed', {
       userId,

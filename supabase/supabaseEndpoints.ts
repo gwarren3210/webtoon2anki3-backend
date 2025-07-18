@@ -92,6 +92,22 @@ export interface StudyCard {
   importanceScore: number;
 }
 
+// Add StudySessionDTO type for the new backend DTO (if not already imported)
+export interface StudySessionDTO {
+  id: string;
+  userId: string;
+  deckPublicId: string;
+  isComplete: boolean;
+  //TODO get rid of any type
+  stats: any; // Use the correct ProgressStats type if available
+  reviewHistory: any[];
+  cardRatings: { [cardId: string]: any[] };
+  createdAt: string;
+  lastActive: string;
+  cards: StudyCard[];
+  currentCard: StudyCard | null;
+}
+
 // Auth endpoints
 export interface GetSessionRequest {
   authorization: string;
@@ -337,7 +353,7 @@ export interface StartStudySessionRequest {
   publicId: string;
 }
 export interface StartStudySessionResponse {
-  sessionState: SessionState;
+  session: StudySessionDTO; // Use the correct StudySessionDTO type if available
 }
 export interface GradeCardRequest {
   sessionId: string;
