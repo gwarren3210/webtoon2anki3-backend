@@ -132,11 +132,12 @@ export class CardScheduler {
     for (const card of this.cards) {
       const progress = card.studyProgress || this.createPlaceholderProgress(card.id);
       let key = progress.state;
-      // Convert numeric state to string enum value if needed
+      // Expect key to be a number; if not, try to convert from string enum value
       if (typeof key === 'number') {
-        const stringKey = Object.values(FSRSState)[key];
-        log.warn('[CardScheduler] Converted numeric state to string', { cardId: card.id, from: key, to: stringKey });
-        key = stringKey;
+        key = Object.values(FSRSState)[key];
+      } else {
+        // Try to convert from string enum value to number
+        log.warn('[CardScheduler] key id not number', { cardId: card.id, state: key, type: typeof key });
       }
       const validBuckets = [FSRSState.New, FSRSState.Learning, FSRSState.Review, FSRSState.Relearning, 'Mistakes'];
       if (!validBuckets.includes(key)) {

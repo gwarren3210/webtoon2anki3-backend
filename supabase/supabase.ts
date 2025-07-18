@@ -853,7 +853,8 @@ const STUDY_SESSION_LIMITS = {
 } as const;
 
 function cardToStudyCard(card: Card): StudyCard {
-  const { studyProgress } = card;
+  const { studyProgress } = card;  log.info("cardToStudyCard input", { studyProgress, card });
+
 
   // Step 1: Add logging for invalid dates
   if (!(studyProgress.due instanceof Date) || isNaN(studyProgress.due.getTime())) {
@@ -867,10 +868,15 @@ function cardToStudyCard(card: Card): StudyCard {
   if (!studyProgress.due) {
     log.error("Missing due in studyProgress", { studyProgress, card });
   }
+  if (studyProgress.due) {
+    log.info("About to call toISOString on due", { due: studyProgress.due, type: typeof studyProgress.due, value: studyProgress.due });
+  }
   if (!studyProgress.createdAt) {
     log.error("Missing createdAt in studyProgress", { studyProgress, card });
   }
-
+  if (studyProgress.createdAt) {
+    log.info("About to call toISOString on createdAt", { createdAt: studyProgress.createdAt, type: typeof studyProgress.createdAt, value: studyProgress.createdAt });
+  }
   const getDifficulty = (difficulty: number): 'easy' | 'medium' | 'hard' => {
     if (difficulty <= 0.3) return 'easy';
     if (difficulty <= 0.7) return 'medium';
@@ -880,20 +886,25 @@ function cardToStudyCard(card: Card): StudyCard {
     if (!progress || progress.reps === 0) return 0;
     return Math.round(((progress.reps - progress.lapses) / progress.reps) * 100);
   };
-  // All date fields are Date objects in backend logic; convert to ISO string for API
-  return {
-    id: card.id,
-    korean: card.korean,
-    english: card.english,
-    pronunciation: '', // Add if available
-    exampleSentence: '', // Add if available
-    difficulty: getDifficulty(studyProgress.difficulty),
-    learningState: studyProgress.state,
-    nextReviewDate: studyProgress.due?.toISOString(),
-    createdAt: studyProgress.createdAt.toISOString(),
-    successRate: calculateSuccessRate(studyProgress),
-    importanceScore: card.importanceScore,
-  };
+  try {
+    // All date fields are Date objects in backend logic; convert to ISO string for API
+    return {
+      id: card.id,
+      korean: card.korean,
+      english: card.english,
+      pronunciation: '', // Add if available
+      exampleSentence: '', // Add if available
+      difficulty: getDifficulty(studyProgress.difficulty),
+      learningState: studyProgress.state,
+      nextReviewDate: studyProgress.due?.toISOString(),
+      createdAt: studyProgress.createdAt.toISOString(),
+      successRate: calculateSuccessRate(studyProgress),
+      importanceScore: card.importanceScore,
+    };
+  } catch (err) {
+    log.error("Error in cardToStudyCard return", { error: err, studyProgress, card });
+    throw err;
+  }
 }
 
 export const startStudySessionApi = api<StartStudySessionRequest, StartStudySessionResponse>({
