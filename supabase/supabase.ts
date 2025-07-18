@@ -872,6 +872,7 @@ function cardToStudyCard(card: Card): StudyCard {
     if (!progress || progress.reps === 0) return 0;
     return Math.round(((progress.reps - progress.lapses) / progress.reps) * 100);
   };
+  // All date fields are Date objects in backend logic; convert to ISO string for API
   return {
     id: card.id,
     korean: card.korean,
@@ -880,7 +881,7 @@ function cardToStudyCard(card: Card): StudyCard {
     exampleSentence: '', // Add if available
     difficulty: getDifficulty(studyProgress.difficulty),
     learningState: getLearningState(studyProgress.state),
-    nextReviewDate: studyProgress.due.toISOString(),
+    nextReviewDate: studyProgress.due?.toISOString(),
     createdAt: studyProgress.createdAt.toISOString(),
     successRate: calculateSuccessRate(studyProgress),
     importanceScore: card.importanceScore,
@@ -987,7 +988,7 @@ export const startStudySessionApi = api<StartStudySessionRequest, StartStudySess
       log.info("[startStudySessionApi] Word IDs from chapterWords", { wordIds });
       const progressData = await getUserProgressHelper(userId, wordIds);
       log.info("[startStudySessionApi] Progress data fetched for chapter", { progressData });
-      progressMap = new Map((progressData || []).map(p => [p.vocabulary_id, p]));
+      progressMap = new Map((progressData || []).map(p => [p.vocabularyId, p]));
       log.info("[startStudySessionApi] Built progressMap for chapter", { progressMapSize: progressMap.size });
       await createMissingProgressRecords(userId, chapterWords, progressMap);
       log.info("[startStudySessionApi] Ensured missing progress records");
@@ -1009,7 +1010,7 @@ export const startStudySessionApi = api<StartStudySessionRequest, StartStudySess
       log.info("[startStudySessionApi] Word IDs from chapterWords (series)", { wordIds });
       const progressData = await getUserProgressHelper(userId, wordIds);
       log.info("[startStudySessionApi] Progress data fetched for series", { progressData });
-      progressMap = new Map((progressData || []).map(p => [p.vocabulary_id, p]));
+      progressMap = new Map((progressData || []).map(p => [p.vocabularyId, p]));
       log.info("[startStudySessionApi] Built progressMap for series", { progressMapSize: progressMap.size });
       await createMissingProgressRecords(userId, chapterWords, progressMap);
       log.info("[startStudySessionApi] Ensured missing progress records for series");

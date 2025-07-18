@@ -8,6 +8,7 @@
 import {
   FSRSProgress,
   FSRSRating,
+  FSRSState,
   FSRSReviewLog,
   FSRSParameters
 } from '../fsrs';
@@ -15,16 +16,16 @@ import {
 /**
  * Represents the current state of a vocabulary item in the SRS system
  */
-export enum StudyState {
+//export enum StudyState {
   /** New card that hasn't been studied yet */
-  NEW = 'new',
+//  NEW = 'New',
   /** Card in the learning phase (first few reviews) */
-  LEARNING = 'learning',
+//  LEARNING = 'Learning',
   /** Card in the review phase (regular spaced repetition) */
-  REVIEWING = 'reviewing',
+//  REVIEWING = 'Reviewing',
   /** Card that has been mastered (no longer needs review) */
-  MASTERED = 'mastered'
-}
+//  MASTERED = 'Mastered'
+//}
 
 /**
  * Represents the study progress for a single vocabulary item
@@ -37,7 +38,7 @@ export interface StudyProgress {
   /** Reference to the user */
   userId: string;
   /** Current state of the card in the SRS system */
-  state: StudyState;
+  state: FSRSState;
   /** Current interval in days until next review */
   interval: number;
   /** E-factor (easiness factor) for the card */
@@ -118,9 +119,9 @@ export interface StudyHistory {
   /** New e-factor after this review */
   newEFactor: number;
   /** Previous state before this review */
-  previousState: StudyState;
+  previousState: FSRSState;
   /** New state after this review */
-  newState: StudyState;
+  newState: FSRSState;
   /** Date when this review was performed */
   reviewedAt: Date;
   /** Date when the record was created */

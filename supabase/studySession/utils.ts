@@ -4,9 +4,10 @@ import { APIError } from "encore.dev/api";
 import { FSRSState, FSRSProgress } from "../fsrs/types";
 import log from "encore.dev/log";
 import { Card } from './types';
+import { Chapter, Series } from "../supabaseEndpoints";
 
 // Define the type for progress data from database
-interface FSRSProgressData {
+/* interface FSRSProgressData {
   id: string;
   user_id: string;
   vocabulary_id: string;
@@ -22,7 +23,7 @@ interface FSRSProgressData {
   learning_steps: number;
   created_at: string;
   updated_at: string;
-}
+} */
 
 // Define StudyCard interface for the conversion
 interface StudyCard {
@@ -105,7 +106,7 @@ export function convertChapterWordsToStudyCards(chapterWords: any[]): StudyCard[
  * @param series - Database series data
  * @returns Series object with proper API format
  */
-export function convertToSeries(series: any) {
+export function convertToSeries(series: any): Series {
   log.info('[convertToSeries] Called', { series });
   return {
     id: series.id,
@@ -122,7 +123,8 @@ export function convertToSeries(series: any) {
     avgRating: series.avg_rating || 5,
     totalLearners: series.total_learners || 99,
     status: series.status || "ongoing",
-    createdAt: series.created_at,
+    // API expects string, not Date
+    createdAt: new Date(series.created_at).toISOString(),
     isTrending: series.is_trending || false,
     isNew: series.is_new || false,
   };
@@ -133,7 +135,7 @@ export function convertToSeries(series: any) {
  * @param chapter - Database chapter data
  * @returns Chapter object with proper API format
  */
-export function convertToChapter(chapter: any) {
+export function convertToChapter(chapter: any): Chapter {
   log.info('[convertToChapter] Called', { chapter });
   return {
     id: chapter.id,
@@ -310,7 +312,7 @@ export async function getChapterWords(chapterIds: string[]): Promise<any[]> {
 /**
  * Fetches FSRS progress records for a user and a list of vocabulary IDs.
  */
-export async function getUserProgress(userId: string, wordIds: string[]): Promise<FSRSProgressData[]> {
+export async function getUserProgress(userId: string, wordIds: string[]): Promise<FSRSProgress[]> {
   log.info('[getUserProgress] Called', { userId, wordIds });
   const { data: progressData, error } = await supabase
     .from('fsrs_progress')
@@ -322,20 +324,20 @@ export async function getUserProgress(userId: string, wordIds: string[]): Promis
     log.error('[getUserProgress] DB error', { error });
     throw APIError.internal('Failed to get user progress').withDetails({ error: error.message });
   }
-  return progressData || [];
+  return (progressData || []).map(toFSRSProgress);
 }
 
 /**
  * Inserts missing FSRS progress records for new words for a user.
  */
-export async function createMissingProgressRecords(userId: string, chapterWords: any[], progressMap: Map<string, FSRSProgressData>): Promise<FSRSProgressData[]> {
+export async function createMissingProgressRecords(userId: string, chapterWords: any[], progressMap: Map<string, FSRSProgress>): Promise<FSRSProgress[]> {
   log.info('[createMissingProgressRecords] Called', { userId, chapterWordsLength: chapterWords.length, progressMapSize: progressMap.size });
   const wordsWithoutProgress = chapterWords.filter(cw => !progressMap.has(cw.word_id));
   log.info('[createMissingProgressRecords] Words without progress', { count: wordsWithoutProgress.length });
   if (wordsWithoutProgress.length === 0) return [];
   const newProgressRecords = wordsWithoutProgress.map(cw => ({
-    user_id: userId,
-    vocabulary_id: cw.word_id,
+    userId: userId,
+    vocabularyId: cw.word_id,
     due: new Date().toISOString(),
     stability: 0,
     difficulty: 0,
@@ -350,7 +352,7 @@ export async function createMissingProgressRecords(userId: string, chapterWords:
     log.error('[createMissingProgressRecords] DB error', { error });
     throw APIError.internal('Failed to create new progress records').withDetails({ error: error.message });
   }
-  (insertedProgress || []).forEach((p: FSRSProgressData) => progressMap.set(p.vocabulary_id, p));
+  (insertedProgress || []).forEach((p: FSRSProgress) => progressMap.set(p.vocabularyId, p));
 
   return insertedProgress || [];
 }
@@ -360,7 +362,7 @@ export async function createMissingProgressRecords(userId: string, chapterWords:
  */
 export function selectStudyWords(
   chapterWords: any[],
-  progressMap: Map<string, FSRSProgressData>,
+  progressMap: Map<string, FSRSProgress>,
   maxNewWords: number,
   maxTotalWords: number
 ): any[] {
@@ -375,7 +377,7 @@ export function selectStudyWords(
   }).sort((a, b) => {
     const progressA = progressMap.get(a.word_id);
     const progressB = progressMap.get(b.word_id);
-    if (!progressA || !progressB) return 0;
+    if (!progressA || !progressB || !progressA.due || !progressB.due) return 0;
     return new Date(progressA.due).getTime() - new Date(progressB.due).getTime();
   });
   log.info('[selectStudyWords] newWords/nonNewWords', { newWordsLength: newWords.length, nonNewWordsLength: nonNewWords.length });
@@ -441,9 +443,10 @@ export async function getCardsWithProgressForChapter(userId: string, chapterId: 
     .in('vocabulary_id', wordIds);
 
   if (progressError) throw APIError.internal('Failed to fetch progress').withDetails({ error: progressError.message });
+  const progress = progressData.map(toFSRSProgress)
 
   // 3. Build a map for quick lookup
-  const progressMap = new Map((progressData || []).map((p: any) => [p.vocabulary_id, toFSRSProgress(p)]));
+  const progressMap = new Map(progress.map((p: FSRSProgress) => [p.vocabularyId, p]));
 
   // 4. Build Card[]
   return chapterWords.map(cw => {

@@ -65,8 +65,8 @@ export async function gradeCard(
   // Convert date fields to ISO strings for DB compatibility
   const logToInsert = {
     ...reviewLog,
-    due: reviewLog.due instanceof Date ? reviewLog.due.toISOString() : reviewLog.due,
-    review: reviewLog.review instanceof Date ? reviewLog.review.toISOString() : reviewLog.review,
+    due: reviewLog.due.toISOString(),
+    review: reviewLog.review.toISOString(),
   };
   const { error: logError } = await supabase
     .from("fsrs_review_logs")
@@ -96,39 +96,15 @@ export async function endStudySession(sessionId: string): Promise<void> {
   }
 }
 
+// TODO
 export async function finishStudySession(sessionId: string): Promise<void> {
   const sessionState = await getSessionState(sessionId);
   if (!sessionState) {
     log.error("Session not found for finish", { sessionId });
     throw new Error("Session not found.");
   }
-  // Gather all FSRSProgress from queues
-  const allProgress: any[] = [];
-  for (const bucket of Object.values(sessionState.queues)) {
-    for (const card of bucket) {
-      if (card.studyProgress) {
-        allProgress.push({
-          ...card.studyProgress,
-          due: (card.studyProgress.due instanceof Date) ? card.studyProgress.due.toISOString() : card.studyProgress.due,
-          last_review: card.studyProgress.last_review ? (card.studyProgress.last_review instanceof Date ? card.studyProgress.last_review.toISOString() : card.studyProgress.last_review) : null,
-          createdAt: (card.studyProgress.createdAt instanceof Date) ? card.studyProgress.createdAt.toISOString() : card.studyProgress.createdAt,
-          updatedAt: (card.studyProgress.updatedAt instanceof Date) ? card.studyProgress.updatedAt.toISOString() : card.studyProgress.updatedAt,
-        });
-      }
-    }
-  }
-  // Upsert all progress
-  if (allProgress.length > 0) {
-    const { error: progressError } = await supabase
-      .from("fsrs_progress")
-      .upsert(allProgress, { onConflict: "id" });
-    if (progressError) {
-      log.error("Failed to upsert FSRS progress on finish", { sessionId, error: progressError });
-    } else {
-      log.info("Upserted FSRS progress on finish", { sessionId, count: allProgress.length });
-    }
-  }
-  // --- Removed reviewLogs upsert logic ---
-  //await deleteSessionState(sessionId);
+
+
+
   //log.info("Session finished and deleted", { sessionId });
 }

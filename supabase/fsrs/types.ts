@@ -24,6 +24,8 @@ export enum Rating {
 /**
  * FSRS-based study progress for a single vocabulary item.
  * This corresponds to a "card" in FSRS terms and will be stored in the database.
+ *
+ * All date fields must be Date objects in backend logic. When sending to the frontend/API, convert to ISO strings.
  */
 export interface FSRSProgress {
   id: string;
@@ -50,6 +52,8 @@ export interface FSRSProgress {
 /**
  * Log of a single FSRS review event.
  * This can be stored for analytics, debugging, or for use with the FSRS optimizer.
+ *
+ * All date fields must be Date objects in backend logic. When sending to the frontend/API, convert to ISO strings.
  */
 export interface FSRSReviewLog {
   id: string;

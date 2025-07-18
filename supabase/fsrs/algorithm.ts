@@ -13,10 +13,39 @@ import {
   Grade,
   createEmptyCard,
   RecordLog,
-  FSRSParameters as TsFSRSParameters
+  FSRSParameters as TsFSRSParameters,
+  State
 } from 'ts-fsrs';
 import { v4 as uuidv4 } from 'uuid';
-import { FSRSProgress, FSRSReviewLog, FSRSRating, FSRSParameters, defaultFSRSParameters } from './types';
+import { FSRSProgress, FSRSReviewLog, Rating as FSRSRating, FSRSParameters, defaultFSRSParameters, FSRSState } from './types';
+
+// --- State Mappers ---
+
+/**
+ * Maps our internal FSRSState (string enum) to ts-fsrs State (numeric enum).
+ */
+function toTsFsrsState(state: FSRSState): State {
+  switch (state) {
+    case FSRSState.New: return State.New;
+    case FSRSState.Learning: return State.Learning;
+    case FSRSState.Review: return State.Review;
+    case FSRSState.Relearning: return State.Relearning;
+    default: throw new Error(`Unknown FSRSState: ${state}`);
+  }
+}
+
+/**
+ * Maps ts-fsrs State (numeric enum) to our internal FSRSState (string enum).
+ */
+function fromTsFsrsState(state: State): FSRSState {
+  switch (state) {
+    case State.New: return FSRSState.New;
+    case State.Learning: return FSRSState.Learning;
+    case State.Review: return FSRSState.Review;
+    case State.Relearning: return FSRSState.Relearning;
+    default: throw new Error(`Unknown State: ${state}`);
+  }
+}
 
 // --- Mappers ---
 
@@ -34,7 +63,7 @@ function toFsrsCard(progress: FSRSProgress): Card {
     scheduled_days: progress.scheduled_days,
     reps: progress.reps,
     lapses: progress.lapses,
-    state: progress.state,
+    state: toTsFsrsState(progress.state),
     last_review: progress.last_review,
     learning_steps: progress.learning_steps,
   };
@@ -50,6 +79,7 @@ function fromFsrsCard(card: Card, existingProgress: FSRSProgress): FSRSProgress 
   return {
     ...existingProgress,
     ...card,
+    state: fromTsFsrsState(card.state),
     updatedAt: new Date(),
   };
 }
@@ -63,6 +93,7 @@ function fromFsrsCard(card: Card, existingProgress: FSRSProgress): FSRSProgress 
  * @param vocabularyId - The ID of the vocabulary item.
  * @returns A new FSRSProgress object, ready to be saved.
  */
+//TODO: Should this post to supabase to get the id or no
 export function createInitialFSRSProgress(userId: string, vocabularyId: string): FSRSProgress {
   const now = new Date();
   const emptyCard = createEmptyCard(now);
@@ -72,6 +103,7 @@ export function createInitialFSRSProgress(userId: string, vocabularyId: string):
     userId,
     vocabularyId,
     ...emptyCard,
+    state: fromTsFsrsState(emptyCard.state),
     createdAt: now,
     updatedAt: now,
   };
@@ -93,13 +125,13 @@ export function processFSRSReview(
   const now = new Date();
 
   // Get all possible scheduling results from FSRS
-  const scheduling_cards: RecordLog = scheduler.repeat(toFsrsCard(progress), now);
+  const schedulingCards: RecordLog = scheduler.repeat(toFsrsCard(progress), now);
   
   if (rating === Rating.Manual) {
     throw new Error('Manual rating is not a valid review rating.');
   }
   // Select the result corresponding to the user's rating
-  const result = scheduling_cards[rating as Grade];
+  const result = schedulingCards[rating as Grade];
   if (!result) {
     throw new Error(`Invalid FSRS rating provided: ${rating}`);
   }
@@ -111,7 +143,8 @@ export function processFSRSReview(
     id: uuidv4(),
     progressId: progress.id,
     userId: progress.userId,
-    ...result.log
+    ...result.log,
+    state: fromTsFsrsState(result.log.state),
   };
 
   return { updatedProgress, reviewLog };
