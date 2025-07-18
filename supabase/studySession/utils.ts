@@ -134,7 +134,7 @@ export function convertToChapter(chapter: any) {
     titleEn: chapter.title || "",
     difficulty: chapter.difficulty || "intermediate",
     cardCount: chapter.card_count || 0,
-    isUnlocked: !!chapter.unlocked,
+    isUnlocked: true,
   };
 }
 
