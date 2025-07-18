@@ -129,10 +129,16 @@ export class CardScheduler {
       Mistakes: [],
     };
     const now = new Date();
-    const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    //const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
     for (const card of this.cards) {
       const progress = card.studyProgress || this.createPlaceholderProgress(card.id);
       let key = progress.state;
+      // Convert numeric state to string enum value if needed
+      if (typeof key === 'number') {
+        const stringKey = Object.values(FSRSState)[key];
+        log.warn('[CardScheduler] Converted numeric state to string', { cardId: card.id, from: key, to: stringKey });
+        key = stringKey;
+      }
       const validBuckets = [FSRSState.New, FSRSState.Learning, FSRSState.Review, FSRSState.Relearning, 'Mistakes'];
       if (!validBuckets.includes(key)) {
         log.error('[CardScheduler] Invalid bucket key for card, assigning to Learning', { cardId: card.id, state: progress.state });
