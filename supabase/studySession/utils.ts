@@ -1,7 +1,7 @@
 import { SessionState, VocabularyWithProgress } from "./types";
 import { supabase } from "../client";
 import { APIError } from "encore.dev/api";
-import { FSRSState } from "../fsrs/types";
+import { FSRSState, FSRSProgress } from "../fsrs/types";
 import log from "encore.dev/log";
 
 // Define the type for progress data from database
@@ -21,6 +21,121 @@ interface FSRSProgressData {
   learning_steps: number;
   created_at: string;
   updated_at: string;
+}
+
+// Define StudyCard interface for the conversion
+interface StudyCard {
+  id: string;
+  korean: string;
+  english: string;
+  pronunciation: string;
+  exampleSentence: string;
+  difficulty: 'easy' | 'medium' | 'hard';
+  learningState: 'new' | 'learning' | 'review' | 'mastered';
+  nextReviewDate: string;
+  createdAt: string;
+  successRate: number;
+  importanceScore: number;
+}
+
+/**
+ * Converts database vocabulary and progress data to StudyCard format.
+ * @param vocabulary - The vocabulary data from database
+ * @param progress - Optional progress data from database
+ * @returns StudyCard object with proper types
+ */
+export function convertToStudyCard(vocabulary: any, progress?: FSRSProgress): StudyCard {
+  // Map FSRS state to learningState
+  const getLearningState = (state: string): 'new' | 'learning' | 'review' | 'mastered' => {
+    switch (state) {
+      case 'New': return 'new';
+      case 'Learning': return 'learning';
+      case 'Review': return 'review';
+      case 'Relearning': return 'mastered';
+      default: return 'new';
+    }
+  };
+  
+  // Map difficulty to allowed values
+  const getDifficulty = (difficulty: number): 'easy' | 'medium' | 'hard' => {
+    if (difficulty <= 0.3) return 'easy';
+    if (difficulty <= 0.7) return 'medium';
+    return 'hard';
+  };
+
+  // Calculate success rate from progress data
+  const calculateSuccessRate = (progress?: FSRSProgress): number => {
+    if (!progress || progress.reps === 0) return 0;
+    return Math.round(((progress.reps - progress.lapses) / progress.reps) * 100);
+  };
+
+  return {
+    id: vocabulary.id,
+    korean: vocabulary.korean,
+    english: vocabulary.english,
+    pronunciation: vocabulary.pronunciation || '',
+    exampleSentence: vocabulary.example_sentence || '',
+    difficulty: progress ? getDifficulty(progress.difficulty) : 'medium',
+    learningState: progress ? getLearningState(progress.state) : 'new',
+    nextReviewDate: progress?.due ? new Date(progress.due).toISOString() : new Date().toISOString(),
+    createdAt: progress?.createdAt ? new Date(progress.createdAt).toISOString() : new Date().toISOString(),
+    successRate: calculateSuccessRate(progress),
+    importanceScore: vocabulary.importanceScore || 0,
+  };
+}
+
+/**
+ * Converts chapter words to StudyCards without progress data (for when deck doesn't exist).
+ * @param chapterWords - Array of chapter words from database
+ * @returns Array of StudyCard objects with default values
+ */
+export function convertChapterWordsToStudyCards(chapterWords: any[]): StudyCard[] {
+  return chapterWords.map(cw => convertToStudyCard(cw.words, undefined));
+}
+
+/**
+ * Converts database series data to Series API format.
+ * @param series - Database series data
+ * @returns Series object with proper API format
+ */
+export function convertToSeries(series: any) {
+  return {
+    id: series.id,
+    publicId: series.slug,
+    titleEn: series.name,
+    titleKr: series.korean_name,
+    author: series.authors,
+    description: series.synopsis,
+    genre: series.genres,
+    difficulty: series.difficulty || "intermediate",
+    coverImage: series.picture,
+    totalChapters: series.total_chapters || 99,
+    totalCards: series.total_cards || 99,
+    avgRating: series.avg_rating || 5,
+    totalLearners: series.total_learners || 99,
+    status: series.status || "ongoing",
+    createdAt: series.created_at,
+    isTrending: series.is_trending || false,
+    isNew: series.is_new || false,
+  };
+}
+
+/**
+ * Converts database chapter data to Chapter API format.
+ * @param chapter - Database chapter data
+ * @returns Chapter object with proper API format
+ */
+export function convertToChapter(chapter: any) {
+  return {
+    id: chapter.id,
+    publicId: chapter.slug,
+    seriesId: chapter.series_id,
+    chapterNumber: chapter.chapter_number,
+    titleEn: chapter.title || "",
+    difficulty: chapter.difficulty || "intermediate",
+    cardCount: chapter.card_count || 0,
+    isUnlocked: !!chapter.unlocked,
+  };
 }
 
 /**

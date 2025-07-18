@@ -54,6 +54,10 @@ import {
   createMissingProgressRecords,
   selectStudyWords,
   buildVocabularyWithProgress,
+  convertToStudyCard,
+  convertChapterWordsToStudyCards,
+  convertToSeries,
+  convertToChapter
 } from './studySession/utils';
 
 /* export interface FSRSProgress {
@@ -414,29 +418,12 @@ export const listSeries = api<{}, ArraySeriesResponse>({
 }, async () => {
   const { data, error } = await supabase
     .from('series')
-    .select('id, name, created_at, picture, synopsis, popularity, genres, authors, korean_name')
+    .select('id, name, created_at, picture, synopsis, popularity, genres, authors, korean_name, slug')
     .order('created_at', { ascending: false });
   if (error) {
     throw APIError.internal("failed to list series").withDetails({ error: error.message });
   }
-  return { series: (data || []).map((s: any) => ({ 
-    id: s.id, 
-    titleEn: s.name,
-    titleKr: s.korean_name,
-    author: s.authors,
-    description: s.synopsis,
-    genre: s.genres,
-    difficulty: "intermediate",
-    coverImage: s.picture,
-    totalChapters: 99,
-    totalCards: 99,
-    avgRating: 5,
-    totalLearners: 99,
-    status: "ongoing",
-    createdAt: s.created_at,
-    isTrending: false,
-    isNew: false,
-  }))};
+  return { series: (data || []).map(convertToSeries) };
 });
 
 /* export const createSeries = api<CreateSeriesRequest, SingleSeriesResponse>({
@@ -490,6 +477,7 @@ export const searchSeries = api<SearchSeriesQueryRequest, ArraySeriesResponse>({
   }
   return { series: (data || []).map((s: any) => ({ 
     id: s.id, 
+    publicId: s.slug,
     titleEn: s.name,
     titleKr: s.korean_name,
     author: s.authors,
@@ -522,26 +510,7 @@ export const getSeriesById = api<SeriesByIdRequest, SingleSeriesResponse>({
     throw APIError.notFound("Series not found").withDetails({ error: error?.message });
   }
   // Map DB fields to SingleSeriesResponse shape
-  return {
-    series: {
-      id: data.id,
-      titleEn: data.name,
-      titleKr: data.korean_name,
-      author: data.authors,
-      description: data.synopsis,
-      genre: data.genres,
-      difficulty: data.difficulty || "intermediate",
-      coverImage: data.picture,
-      totalChapters: data.total_chapters || 0,
-      totalCards: data.total_cards || 0,
-      avgRating: data.avg_rating || 0,
-      totalLearners: data.total_learners || 0,
-      status: data.status || "ongoing",
-      createdAt: data.created_at,
-      isTrending: !!data.is_trending,
-      isNew: !!data.is_new,
-    }
-  };
+  return { series: convertToSeries(data) };
 });
 
 // WARN not implemented in db
@@ -561,6 +530,7 @@ export const getFeaturedSeries = api<{}, ArraySeriesResponse>({
   return {
     series: shuffled.map(s => ({
       id: s.id,
+      publicId: s.slug,
       titleEn: s.name,
       titleKr: s.korean_name,
       author: s.authors,
@@ -597,6 +567,7 @@ export const getTrendingSeries = api<{}, ArraySeriesResponse>({
   return {
     series: shuffled.map(s => ({
       id: s.id,
+      publicId: s.slug,
       titleEn: s.name,
       titleKr: s.korean_name,
       author: s.authors,
@@ -624,24 +595,14 @@ export const listChapters = api<ListChaptersRequest, ListChaptersResponse>({
 }, async ({ seriesId }) => {
   const { data, error } = await supabase
     .from('chapters')
-    .select('id, series_id, chapter_number, difficulty, created_at')
+    .select('id, series_id, chapter_number, difficulty, created_at, slug')
     .eq('series_id', seriesId)
     .order('chapter_number', { ascending: true });
   if (error) {
     throw APIError.internal("failed to list chapters").withDetails({ error: error.message });
   }
   // TODO figure out unlocking behavior
-  return {
-    chapters: (data || []).map((c: any) => ({
-      id: c.id,
-      seriesId: c.series_id,
-      chapterNumber: c.chapter_number,
-      titleEn: c.title,
-      difficulty: c.difficulty,
-      cardCount: 99,
-      isUnlocked: true,
-    })),
-  };
+  return { chapters: (data || []).map(convertToChapter) };
 });
 
 export const getChapterById = api<ChapterByIdRequest, SingleChapterResponse>({
@@ -659,15 +620,7 @@ export const getChapterById = api<ChapterByIdRequest, SingleChapterResponse>({
   }
   // Map DB fields to SingleChapterResponse shape
   return {
-    chapter: {
-      id: data.id,
-      seriesId: data.series_id,
-      chapterNumber: data.chapter_number,
-      titleEn: data.title || "",
-      difficulty: data.difficulty || "intermediate",
-      cardCount: data.card_count || 0,
-      isUnlocked: !!data.unlocked,
-    }
+    chapter: convertToChapter(data)
   };
 });
 
@@ -692,19 +645,7 @@ export const listCards = api<ListCardsRequest, ListCardsResponse>({
   
   if (deckError || !deck) {
     // Return cards without progress data when deck doesn't exist
-    const cards = chapterWords.map(cw => ({
-      id: cw.words.id,
-      korean: cw.words.word,
-      english: cw.words.definition,
-      pronunciation: '',
-      exampleSentence: '',
-      difficulty: 'medium' as const,
-      learningState: 'new' as const,
-      nextReviewDate: new Date().toISOString(),
-      createdAt: new Date().toISOString(),
-      successRate: 100,
-      importanceScore: cw.importance_score || 0,
-    }));
+    const cards = convertChapterWordsToStudyCards(chapterWords);
     return { cards, deckExists: false };
   }
   
@@ -716,37 +657,7 @@ export const listCards = api<ListCardsRequest, ListCardsResponse>({
   await createMissingProgressRecords(userId, chapterWords, progressMap);
   // Build cards with progress
   const cards = buildVocabularyWithProgress(chapterWords, progressMap).map(({ vocabulary, studyProgress }) => {
-    // Map FSRS state to learningState
-    const getLearningState = (state: string): 'new' | 'learning' | 'review' | 'mastered' => {
-      switch (state) {
-        case 'New': return 'new';
-        case 'Learning': return 'learning';
-        case 'Review': return 'review';
-        case 'Relearning': return 'mastered';
-        default: return 'new';
-      }
-    };
-    
-    // Map difficulty to allowed values
-    const getDifficulty = (difficulty: number): 'easy' | 'medium' | 'hard' => {
-      if (difficulty <= 0.3) return 'easy';
-      if (difficulty <= 0.7) return 'medium';
-      return 'hard';
-    };
-
-    return {
-      id: vocabulary.id,
-      korean: vocabulary.korean,
-      english: vocabulary.english,
-      pronunciation: '',
-      exampleSentence: '',
-      difficulty: studyProgress?.difficulty ? getDifficulty(studyProgress.difficulty) : 'medium',
-      learningState: studyProgress?.state ? getLearningState(studyProgress.state) : 'new',
-      nextReviewDate: studyProgress?.due ? new Date(studyProgress.due).toISOString() : undefined,
-      createdAt: studyProgress?.createdAt ? new Date(studyProgress.createdAt).toISOString() : new Date().toISOString(),
-      successRate: 100,
-      importanceScore: vocabulary.importanceScore || 0,
-    };
+    return convertToStudyCard(vocabulary, studyProgress);
   });
   return { cards, deckExists: true };
 });
@@ -1658,25 +1569,7 @@ export const getUserLibrary = api<GetUserLibraryRequest, GetUserLibraryResponse>
     .in('id', seriesIds);
   if (seriesError || !series) return { series: [] };
   // Map to Series[] type
-  const mapped = series.map((s: any) => ({
-    id: s.id,
-    titleEn: s.name,
-    titleKr: s.korean_name,
-    author: s.authors,
-    description: s.synopsis,
-    genre: s.genres,
-    difficulty: s.difficulty || "intermediate",
-    coverImage: s.picture,
-    totalChapters: s.total_chapters || 0,
-    totalCards: s.total_cards || 0,
-    avgRating: s.avg_rating || 0,
-    totalLearners: s.total_learners || 0,
-    status: s.status || "ongoing",
-    createdAt: s.created_at,
-    isTrending: !!s.is_trending,
-    isNew: !!s.is_new,
-  }));
-  return { series: mapped };
+  return { series: series.map(convertToSeries) };
 }); 
 
 export const getUserPreferences = api<GetUserPreferencesRequest, GetUserPreferencesResponse>({

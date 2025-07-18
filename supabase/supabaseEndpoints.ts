@@ -32,6 +32,7 @@ export interface Vocabulary {
 
 export interface Series {
   id: string;
+  publicId: string;
   titleEn: string;
   titleKr: string;
   author: string;
@@ -51,6 +52,7 @@ export interface Series {
 
 export interface Chapter {
   id: string;
+  publicId: string;
   seriesId: string;
   chapterNumber: number;
   titleEn: string;
