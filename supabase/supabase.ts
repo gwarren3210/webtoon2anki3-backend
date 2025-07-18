@@ -1046,6 +1046,15 @@ export const startStudySessionApi = api<StartStudySessionRequest, StartStudySess
     // Convert to StudyCard[] for API response
     const studyCards = cards.map(cardToStudyCard);
     // Build frontend-friendly DTO
+    log.info("[startStudySessionApi] sessionState.currentCard", { currentCard: sessionState.currentCard });
+    log.info("[startStudySessionApi] sessionState.queues keys", { queueKeys: Object.keys(sessionState.queues) });
+    for (const [key, value] of Object.entries(sessionState.queues)) {
+      log.info(`[startStudySessionApi] queue '${key}' length`, { length: Array.isArray(value) ? value.length : 'not array', sample: Array.isArray(value) && value.length > 0 ? value[0] : undefined });
+    }
+    log.info("[startStudySessionApi] sessionState.allCards", { allCardsCount: sessionState.allCards?.length, sample: sessionState.allCards?.[0] });
+    if (!sessionState.currentCard) {
+      log.warn("[startStudySessionApi] currentCard is null!", { queueKeys: Object.keys(sessionState.queues), queues: sessionState.queues });
+    }
     const sessionDto = {
       id: sessionState.id,
       userId: sessionState.userId,

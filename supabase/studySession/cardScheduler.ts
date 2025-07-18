@@ -136,7 +136,7 @@ export class CardScheduler {
         log.info('[CardScheduler] Pushing to bucket', { bucket: 'New', cardId: card.id });
         buckets.New.push(card);
       } else if (progress.due < tomorrow) {
-        const key = this.getFSRSStateKey(progress.state);
+        const key = progress.state;
         log.info('[CardScheduler] Determined bucket key', { key, cardId: card.id, state: progress.state });
         if (!buckets[key]) {
           log.error('[CardScheduler] Bucket key does not exist, initializing', { key, cardId: card.id });
@@ -148,12 +148,4 @@ export class CardScheduler {
     log.info('[CardScheduler] Buckets created', { buckets });
     return buckets;
   }
-
-  // Helper to get the member name from the value
-  private getFSRSStateKey(value: FSRSState): keyof typeof FSRSState {
-    return Object.keys(FSRSState).find(
-      k => FSRSState[k as keyof typeof FSRSState] === value
-    ) as keyof typeof FSRSState;
-  }
-
 } 
