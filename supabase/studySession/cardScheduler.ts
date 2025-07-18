@@ -7,6 +7,7 @@
 import { FSRSProgress, FSRSState } from '../fsrs';
 import { VocabularyWithProgress, Card, SessionQueues } from './types';
 import { isCardDue } from './progressTracker';
+import log from 'encore.dev/log';
 
 const DEFAULT_SESSION_SIZE = 50;
 const NEW_CARD_PENALTY = 1000; // Arbitrary high penalty to sort new cards last
@@ -22,6 +23,7 @@ export class CardScheduler {
     cards: VocabularyWithProgress[],
     config: { maxCards?: number } = {}
   ) {
+    log.info('[CardScheduler] constructor called', { cardsLength: cards.length, config });
     this.cards = cards;
     this.config = {
       maxCards: config.maxCards || DEFAULT_SESSION_SIZE,
@@ -128,6 +130,7 @@ export class CardScheduler {
    * @returns {SessionQueues} Buckets of cards by learning state.
    */
   public createSessionBuckets() {
+    log.info('[CardScheduler] createSessionBuckets called', { cardsLength: this.cards.length });
     const buckets: SessionQueues = {
       New: [],
       Learning: [],
@@ -147,11 +150,19 @@ export class CardScheduler {
         studyProgress: progress,
       };
       if (progress.state === FSRSState.New) {
+        log.info('[CardScheduler] Pushing to bucket', { bucket: 'New', cardId: card.id });
         buckets.New.push(card);
       } else if (progress.due < tomorrow) {
-        buckets[this.getFSRSStateKey(progress.state)].push(card);
+        const key = this.getFSRSStateKey(progress.state);
+        log.info('[CardScheduler] Determined bucket key', { key, cardId: card.id, state: progress.state });
+        if (!buckets[key]) {
+          log.error('[CardScheduler] Bucket key does not exist, initializing', { key, cardId: card.id });
+          buckets[key] = [];
+        }
+        buckets[key].push(card);
       }
     }
+    log.info('[CardScheduler] Buckets created', { buckets });
     return buckets;
   }
 
