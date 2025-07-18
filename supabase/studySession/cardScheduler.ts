@@ -84,8 +84,6 @@ export class CardScheduler {
           // Reviews due today or in the future, sorted by due date
           return dueDate + 1e12; // Push non-overdue reviews to the back
         }
-
-      case FSRSState.New:
       default:
         // New cards are sorted last, can be further prioritized by importance score
         return now + 1e13 + (progress.id.charCodeAt(0) * NEW_CARD_PENALTY); // Base sort on something arbitrary
