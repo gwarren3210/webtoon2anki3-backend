@@ -1057,6 +1057,7 @@ export const startStudySessionApi = api<StartStudySessionRequest, StartStudySess
       createdAt: sessionState.createdAt,
       lastActive: sessionState.lastActive,
       cards: studyCards,
+      currentCard: sessionState.currentCard ? cardToStudyCard(sessionState.currentCard) : null,
       // Add any other fields the frontend needs
     };
     return { sessionState: reviveSessionState(sessionState), session: sessionDto };
