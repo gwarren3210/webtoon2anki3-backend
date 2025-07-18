@@ -996,7 +996,7 @@ export const startStudySessionApi = api<StartStudySessionRequest, StartStudySess
       log.info("[startStudySessionApi] Word IDs from chapterWords", { wordIds });
       const progressData = await getUserProgressHelper(userId, wordIds);
       log.info("[startStudySessionApi] Progress data fetched for chapter", { progressData });
-      progressMap = new Map((progressData || []).map(p => [p.vocabularyId, p]));
+      progressMap = new Map((progressData || []).map(p => [p.vocabularyId, toFSRSProgress(p)]));
       log.info("[startStudySessionApi] Built progressMap for chapter", { progressMapSize: progressMap.size });
       await createMissingProgressRecords(userId, chapterWords, progressMap);
       log.info("[startStudySessionApi] Ensured missing progress records");
@@ -1018,7 +1018,7 @@ export const startStudySessionApi = api<StartStudySessionRequest, StartStudySess
       log.info("[startStudySessionApi] Word IDs from chapterWords (series)", { wordIds });
       const progressData = await getUserProgressHelper(userId, wordIds);
       log.info("[startStudySessionApi] Progress data fetched for series", { progressData });
-      progressMap = new Map((progressData || []).map(p => [p.vocabularyId, p]));
+      progressMap = new Map((progressData || []).map(p => [p.vocabularyId, toFSRSProgress(p)]));
       log.info("[startStudySessionApi] Built progressMap for series", { progressMapSize: progressMap.size });
       await createMissingProgressRecords(userId, chapterWords, progressMap);
       log.info("[startStudySessionApi] Ensured missing progress records for series");

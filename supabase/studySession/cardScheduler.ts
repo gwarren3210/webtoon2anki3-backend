@@ -66,6 +66,7 @@ export class CardScheduler {
    */
   private getSortPriority(progress: FSRSProgress): number {
     const now = new Date().getTime();
+    if (progress.state === FSRSState.New) return now + 1e13 + (progress.id.charCodeAt(0) * NEW_CARD_PENALTY); 
     const dueDate = progress.due.getTime();
     const daysOverdue = Math.max(0, (now - dueDate) / (1000 * 3600 * 24));
 
