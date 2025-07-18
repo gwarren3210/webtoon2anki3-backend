@@ -5,7 +5,7 @@
  * based on FSRS progress data and session configuration.
  */
 import { FSRSProgress, FSRSState } from '../fsrs';
-import { VocabularyWithProgress, Card, SessionQueues } from './types';
+import { Card, SessionQueues } from './types';
 import { isCardDue } from './progressTracker';
 import log from 'encore.dev/log';
 
@@ -13,14 +13,14 @@ const DEFAULT_SESSION_SIZE = 50;
 const NEW_CARD_PENALTY = 1000; // Arbitrary high penalty to sort new cards last
 
 export class CardScheduler {
-  private cards: VocabularyWithProgress[];
+  private cards: Card[];
   private config: {
     maxCards: number;
     // Future config options can be added here
   };
 
   constructor(
-    cards: VocabularyWithProgress[],
+    cards: Card[],
     config: { maxCards?: number } = {}
   ) {
     log.info('[CardScheduler] constructor called', { cardsLength: cards.length, config });
@@ -36,17 +36,7 @@ export class CardScheduler {
    */
   public createSessionDeck(): Card[] {
     const sortedCards = this.sortCards();
-    const sessionVwps = sortedCards.slice(0, this.config.maxCards);
-    
-    // Map VocabularyWithProgress to the session Card type
-    return sessionVwps.map(vwp => ({
-      id: vwp.vocabulary.id,
-      korean: vwp.vocabulary.korean,
-      english: vwp.vocabulary.english,
-      importanceScore: vwp.vocabulary.importanceScore,
-      // Ensure studyProgress is not undefined, though sorting should handle this
-      studyProgress: vwp.studyProgress!,
-    }));
+    return sortedCards.slice(0, this.config.maxCards);
   }
   
   /**
@@ -56,14 +46,14 @@ export class CardScheduler {
    * 2. Overdue Review cards (most overdue first)
    * 3. New cards (based on importance score or other metric)
    * 4. Due Today Review cards
-   * @returns A sorted array of `VocabularyWithProgress`.
+   * @returns A sorted array of `Card`.
    */
-  private sortCards(): VocabularyWithProgress[] {
+  private sortCards(): Card[] {
     return this.cards
-      .map(vwp => ({
-        ...vwp,
+      .map(card => ({
+        ...card,
         // Ensure every card has progress for sorting; new cards get a placeholder
-        studyProgress: vwp.studyProgress || this.createPlaceholderProgress(vwp.vocabulary.id)
+        studyProgress: card.studyProgress || this.createPlaceholderProgress(card.id)
       }))
       .sort((a, b) => this.getSortPriority(a.studyProgress) - this.getSortPriority(b.studyProgress));
   }
@@ -140,15 +130,8 @@ export class CardScheduler {
     };
     const now = new Date();
     const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-    for (const vwp of this.cards) {
-      const progress = vwp.studyProgress || this.createPlaceholderProgress(vwp.vocabulary.id);
-      const card: Card = {
-        id: vwp.vocabulary.id,
-        korean: vwp.vocabulary.korean,
-        english: vwp.vocabulary.english,
-        importanceScore: vwp.vocabulary.importanceScore,
-        studyProgress: progress,
-      };
+    for (const card of this.cards) {
+      const progress = card.studyProgress || this.createPlaceholderProgress(card.id);
       if (progress.state === FSRSState.New) {
         log.info('[CardScheduler] Pushing to bucket', { bucket: 'New', cardId: card.id });
         buckets.New.push(card);

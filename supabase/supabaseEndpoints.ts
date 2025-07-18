@@ -1,5 +1,5 @@
 // All endpoint request/response types for supabase.ts
-import { SessionState, VocabularyWithProgress, StudyProgress, ProgressStats } from './studySession/types'
+import { SessionState, StudyProgress, ProgressStats } from './studySession/types'
 import { Rating, FSRSProgress } from './fsrs/types'
 
 export interface UserStats {
@@ -70,7 +70,7 @@ export interface Deck {
   // Add other fields as needed
 }
 
-interface Card {
+export interface Card {
    id: string;
    korean: string;
    english: string;
@@ -344,9 +344,11 @@ export interface GradeCardRequest {
   cardId: string;
   rating: Rating;
 }
-// TODO fix the mismatched session types (StudySession on frontend)
+// New frontend-friendly response for grade card
 export interface GradeCardResponse {
-  sessionState: SessionState;
+  sessionId: string;
+  nextCard: StudyCard | null;
+  stats: ProgressStats;
 }
 export interface EndStudySessionRequest {
   sessionId: string;

@@ -183,29 +183,6 @@ export interface StudySessionConfig {
   showAnswerImmediately: boolean;
 }
 
-/**
- * Represents a vocabulary item with study progress
- */
-export interface VocabularyWithProgress {
-  /** Vocabulary item information */
-  vocabulary: {
-    id: string;
-    korean: string;
-    english: string;
-    importanceScore: number;
-    context?: string;
-    imageUrl?: string;
-    seriesName?: string;
-    chapterNumber?: string;
-  };
-  /** Study progress for this vocabulary item */
-  studyProgress?: FSRSProgress;
-  /** Whether this card is due for review */
-  isDue: boolean;
-  /** Days until next review (negative if overdue) */
-  daysUntilReview: number;
-}
-
 // Card: Study card for a session
 export interface Card {
   id: string;
@@ -250,8 +227,8 @@ export interface SessionState {
   reviewHistory: ReviewEvent[];
   cardRatings: { [cardId: string]: FSRSRating[] };
   stats: ProgressStats;
-
   queues: SessionQueues;
+  allCards: Card[];
   createdAt: Date;
   lastActive: Date;
 } 

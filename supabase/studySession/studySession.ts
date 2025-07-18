@@ -18,7 +18,6 @@ import {
   SessionState,
   ProgressStats,
   StudySession as StudySessionData,
-  VocabularyWithProgress,
   SessionQueues
 } from './types';
 import { CardScheduler } from './cardScheduler';
@@ -42,13 +41,13 @@ export class ActiveStudySession {
     userId: string,
     sessionId: string,
     deckPublicId: string,
-    allCards: Card[],
-    scheduler: CardScheduler
+    cards: Card[],
   ) {
-    log.info('[ActiveStudySession] constructor called', { userId, sessionId, deckPublicId, allCardsLength: allCards.length });
+    log.info('[ActiveStudySession] constructor called', { userId, sessionId, deckPublicId, cardsLength: cards.length });
+    const scheduler = new CardScheduler(cards);
     this.queues = scheduler.createSessionBuckets();
     log.info('[ActiveStudySession] Queues initialized', { queues: this.queues });
-    this.allCards = allCards;
+    this.allCards = scheduler.createSessionDeck();
     this.state = {
       id: sessionId,
       userId,
@@ -66,6 +65,7 @@ export class ActiveStudySession {
       isComplete: false,
       createdAt: new Date(),
       lastActive: new Date(),
+      allCards: cards, // persist original cards
     };
     this.getNextCard();
   }
@@ -174,8 +174,8 @@ export class ActiveStudySession {
    */
   public static fromState(state: SessionState): ActiveStudySession {
     // Rehydrate queues from state
-    const scheduler = new CardScheduler([], { maxCards: 0 });
-    const session = new ActiveStudySession(state.userId, state.id, state.deckPublicId, [], scheduler);
+    const cards = state.allCards || [];
+    const session = new ActiveStudySession(state.userId, state.id, state.deckPublicId, cards);
     session.state = state;
     session.queues = state.queues;
     return session;

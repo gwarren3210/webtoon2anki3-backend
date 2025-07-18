@@ -5,7 +5,7 @@
  * It exposes functionality to start, manage, and interact with a user's study session.
  */
 import { ActiveStudySession } from './studySession';
-import { VocabularyWithProgress, SessionState, Card } from './types';
+import { SessionState, Card } from './types';
 import { Rating, FSRSProgress, FSRSReviewLog } from '../fsrs/types';
 import { CardScheduler } from './cardScheduler';
 import { saveSessionState, getSessionState, deleteSessionState, createSession } from "../sessionManager";
@@ -22,12 +22,11 @@ import { supabase } from "../client";
 export async function startStudySession(
   userId: string,
   deckPublicId: string,
-  vocabWithProgress: VocabularyWithProgress[]
+  cards: Card[]
 ): Promise<SessionState> {
   // Use the sessionManager to create a new session and get the sessionId
   const sessionId = await createSession(userId);
-  const scheduler = new CardScheduler(vocabWithProgress);
-  const session = new ActiveStudySession(userId, sessionId, deckPublicId, [], scheduler);
+  const session = new ActiveStudySession(userId, sessionId, deckPublicId, cards);
   const sessionState = session.getState();
   await saveSessionState(sessionState);
   log.info("Session started and saved", { sessionId: sessionState.id });
@@ -89,9 +88,10 @@ export async function gradeCard(
 export async function endStudySession(sessionId: string): Promise<void> {
   const sessionState = await getSessionState(sessionId);
   if (sessionState) {
+   // TODO
     // In a real app, you would finalize stats and persist the results.
     // For now, we just log it.
-    console.log(`Ending session ${sessionId}. Reviewed ${sessionState.progress.reviewed} cards.`);
+    console.log(`Ending session ${sessionId}. Reviewed ${sessionState.stats.reviewed} cards.`);
     // sessionManager.deleteSession(sessionId); // Or mark as inactive
   }
 }
@@ -129,6 +129,6 @@ export async function finishStudySession(sessionId: string): Promise<void> {
     }
   }
   // --- Removed reviewLogs upsert logic ---
-  await deleteSessionState(sessionId);
-  log.info("Session finished and deleted", { sessionId });
+  //await deleteSessionState(sessionId);
+  //log.info("Session finished and deleted", { sessionId });
 }

@@ -1,8 +1,9 @@
-import { SessionState, VocabularyWithProgress } from "./types";
+import { SessionState } from "./types";
 import { supabase } from "../client";
 import { APIError } from "encore.dev/api";
 import { FSRSState, FSRSProgress } from "../fsrs/types";
 import log from "encore.dev/log";
+import { Card } from './types';
 
 // Define the type for progress data from database
 interface FSRSProgressData {
@@ -381,47 +382,81 @@ export function selectStudyWords(
   const result = [...nonNewWords, ...newWords].slice(0, maxTotalWords);
   log.info('[selectStudyWords] Returning', { resultLength: result.length });
   return result;
+} 
+
+// Helper to convert FSRSProgressData (DB) to FSRSProgress (runtime)
+export function toFSRSProgress(data: any): FSRSProgress {
+  return {
+    id: data.id,
+    userId: data.user_id,
+    vocabularyId: data.vocabulary_id,
+    due: new Date(data.due),
+    stability: data.stability,
+    difficulty: data.difficulty,
+    elapsed_days: data.elapsed_days,
+    scheduled_days: data.scheduled_days,
+    reps: data.reps,
+    lapses: data.lapses,
+    state: data.state,
+    last_review: data.last_review ? new Date(data.last_review) : undefined,
+    learning_steps: data.learning_steps,
+    createdAt: new Date(data.created_at),
+    updatedAt: new Date(data.updated_at),
+  };
 }
 
-/**
- * Builds the final array of vocabulary with their progress for a study session.
- */
-export function buildVocabularyWithProgress(selectedWords: any[], progressMap: Map<string, FSRSProgressData>): VocabularyWithProgress[] {
-  log.info('[buildVocabularyWithProgress] Called', { selectedWordsLength: selectedWords.length, progressMapSize: progressMap.size });
+// Helper to create a fresh FSRSProgress for a new card
+// TODO find optimal initial state
+export function createInitialFSRSProgress(userId: string, vocabularyId: string): FSRSProgress {
   const now = new Date();
-  return selectedWords.map(cw => {
-    const progress = progressMap.get(cw.word_id);
+  return {
+    id: `new-${vocabularyId}`,
+    userId,
+    vocabularyId,
+    due: now,
+    stability: 0,
+    difficulty: 0,
+    elapsed_days: 0,
+    scheduled_days: 0,
+    reps: 0,
+    lapses: 0,
+    state: FSRSState.New,
+    learning_steps: 0,
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+// Main helper to get all cards for a chapter with progress for a user
+export async function getCardsWithProgressForChapter(userId: string, chapterId: string): Promise<Card[]> {
+  // 1. Get all words for the chapter
+  const chapterWords = await getChapterWords([chapterId]);
+  const wordIds = chapterWords.map(cw => cw.word_id);
+
+  // 2. Get all progress for these words for the user
+  const { data: progressData, error: progressError } = await supabase
+    .from('fsrs_progress')
+    .select('*')
+    .eq('user_id', userId)
+    .in('vocabulary_id', wordIds);
+
+  if (progressError) throw APIError.internal('Failed to fetch progress').withDetails({ error: progressError.message });
+
+  // 3. Build a map for quick lookup
+  const progressMap = new Map((progressData || []).map((p: any) => [p.vocabulary_id, toFSRSProgress(p)]));
+
+  // 4. Build Card[]
+  return chapterWords.map(cw => {
+    let progress = progressMap.get(cw.word_id);
     if (!progress) {
-      log.error("[buildVocabularyWithProgress] No Progress Found", { wordId: cw.word_id });
-      throw new Error(`No progress found for word ${cw.word_id}`);
+      progress = createInitialFSRSProgress(userId, cw.word_id);
     }
-    const dueDate = new Date(progress.due);
     return {
-      vocabulary: {
-        id: cw.words.id,
-        korean: cw.words.word,
-        english: cw.words.definition,
-        importanceScore: cw.importance_score || 0,
-      },
-      studyProgress: {
-        id: progress.id,
-        userId: progress.user_id,
-        vocabularyId: progress.vocabulary_id,
-        due: dueDate,
-        stability: progress.stability,
-        difficulty: progress.difficulty,
-        elapsed_days: progress.elapsed_days,
-        scheduled_days: progress.scheduled_days,
-        reps: progress.reps,
-        lapses: progress.lapses,
-        state: progress.state,
-        last_review: progress.last_review ? new Date(progress.last_review) : undefined,
-        learning_steps: progress.learning_steps,
-        createdAt: new Date(progress.created_at),
-        updatedAt: new Date(progress.updated_at),
-      },
-      isDue: dueDate <= now,
-      daysUntilReview: Math.max(0, (dueDate.getTime() - now.getTime()) / (1000 * 3600 * 24))
+      id: cw.words.id,
+      korean: cw.words.word,
+      english: cw.words.definition,
+      importanceScore: cw.importance_score || 0,
+      studyProgress: progress,
     };
   });
 } 

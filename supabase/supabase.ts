@@ -8,6 +8,7 @@ import {
 } from "./studySession/index";
 import { reviveSessionState } from "./studySession/utils";
 import log from "encore.dev/log";
+import { Card } from './supabaseEndpoints'
 import type {
   SignupRequest, SignupResponse,
   StartStudySessionRequest, StartStudySessionResponse,
@@ -53,12 +54,15 @@ import {
   getUserProgress as getUserProgressHelper,
   createMissingProgressRecords,
   selectStudyWords,
-  buildVocabularyWithProgress,
   convertToStudyCard,
   convertChapterWordsToStudyCards,
   convertToSeries,
-  convertToChapter
+  convertToChapter,
+  getCardsWithProgressForChapter,
+  createInitialFSRSProgress,
+  toFSRSProgress,
 } from './studySession/utils';
+import { FSRSProgress, FSRSState } from './fsrs/types';
 
 /* export interface FSRSProgress {
   id: string;logic options+
@@ -640,26 +644,10 @@ export const listCards = api<ListCardsRequest, ListCardsResponse>({
     .eq('chapter_id', chapterId)
     .maybeSingle();
   
-  // Get all words for the chapter
-  const chapterWords = await getChapterWordsHelper([chapterId]);
-  
-  if (deckError || !deck) {
-    // Return cards without progress data when deck doesn't exist
-    const cards = convertChapterWordsToStudyCards(chapterWords);
-    return { cards, deckExists: false };
-  }
-  
-  const wordIds = chapterWords.map(cw => cw.word_id);
-  // Get user progress for these words
-  const progressData = await getUserProgressHelper(userId, wordIds);
-  const progressMap = new Map((progressData || []).map(p => [p.vocabulary_id, p]));
-  // Ensure all progress records exist
-  await createMissingProgressRecords(userId, chapterWords, progressMap);
-  // Build cards with progress
-  const cards = buildVocabularyWithProgress(chapterWords, progressMap).map(({ vocabulary, studyProgress }) => {
-    return convertToStudyCard(vocabulary, studyProgress);
-  });
-  return { cards, deckExists: true };
+  // Always return cards with progress (new or existing)
+  const cards = await getCardsWithProgressForChapter(userId, chapterId);
+  const studyCards = cards.map(cardToStudyCard);
+  return { cards: studyCards, deckExists: !!deck };
 });
 
 // --- User endpoints ---
@@ -863,6 +851,42 @@ const STUDY_SESSION_LIMITS = {
   MAX_TOTAL_WORDS: 50,
 } as const;
 
+function cardToStudyCard(card: Card): StudyCard {
+  const { studyProgress } = card;
+  // Helper functions for difficulty, learningState, etc.
+  const getLearningState = (state: FSRSState): 'new' | 'learning' | 'review' | 'mastered' => {
+    switch (state) {
+      case FSRSState.New: return 'new';
+      case FSRSState.Learning: return 'learning';
+      case FSRSState.Review: return 'review';
+      case FSRSState.Relearning: return 'mastered';
+      default: return 'new';
+    }
+  };
+  const getDifficulty = (difficulty: number): 'easy' | 'medium' | 'hard' => {
+    if (difficulty <= 0.3) return 'easy';
+    if (difficulty <= 0.7) return 'medium';
+    return 'hard';
+  };
+  const calculateSuccessRate = (progress: FSRSProgress): number => {
+    if (!progress || progress.reps === 0) return 0;
+    return Math.round(((progress.reps - progress.lapses) / progress.reps) * 100);
+  };
+  return {
+    id: card.id,
+    korean: card.korean,
+    english: card.english,
+    pronunciation: '', // Add if available
+    exampleSentence: '', // Add if available
+    difficulty: getDifficulty(studyProgress.difficulty),
+    learningState: getLearningState(studyProgress.state),
+    nextReviewDate: studyProgress.due.toISOString(),
+    createdAt: studyProgress.createdAt.toISOString(),
+    successRate: calculateSuccessRate(studyProgress),
+    importanceScore: card.importanceScore,
+  };
+}
+
 export const startStudySessionApi = api<StartStudySessionRequest, StartStudySessionResponse>({
   method: "POST",
   path: "/study/session/start",
@@ -1001,12 +1025,41 @@ export const startStudySessionApi = api<StartStudySessionRequest, StartStudySess
       STUDY_SESSION_LIMITS.MAX_TOTAL_WORDS
     );
     log.info("[startStudySessionApi] Selected study words", { selectedWords });
-    vocabWithProgress = buildVocabularyWithProgress(selectedWords, progressMap);
-    log.info("[startStudySessionApi] Built vocabWithProgress", { vocabWithProgress });
-    const sessionState = await startStudySession(userId, publicId, vocabWithProgress);
+    const cards: Card[] = selectedWords.map(cw => {
+      let progress = progressMap.get(cw.word_id);
+      if (!progress) {
+        progress = createInitialFSRSProgress(userId, cw.word_id);
+      } else {
+        progress = toFSRSProgress(progress);
+      }
+      return {
+        id: cw.words.id,
+        korean: cw.words.word,
+        english: cw.words.definition,
+        importanceScore: cw.importance_score || 0,
+        studyProgress: progress,
+      };
+    });
+    log.info("[startStudySessionApi] Built cards", { cards });
+    const sessionState = await startStudySession(userId, publicId, cards);
     log.info("[startStudySessionApi] Session created", { sessionState, userId });
-    // Ensure sessionState includes all new fields and matches API type
-    return { sessionState: reviveSessionState(sessionState) };
+    // Convert to StudyCard[] for API response
+    const studyCards = cards.map(cardToStudyCard);
+    // Build frontend-friendly DTO
+    const sessionDto = {
+      id: sessionState.id,
+      userId: sessionState.userId,
+      deckPublicId: sessionState.deckPublicId,
+      isComplete: sessionState.isComplete,
+      stats: sessionState.stats,
+      reviewHistory: sessionState.reviewHistory,
+      cardRatings: sessionState.cardRatings,
+      createdAt: sessionState.createdAt,
+      lastActive: sessionState.lastActive,
+      cards: studyCards,
+      // Add any other fields the frontend needs
+    };
+    return { sessionState: reviveSessionState(sessionState), session: sessionDto };
   } catch (error: any) {
     log.error('[startStudySessionApi] Study session creation failed', {
       userId,
@@ -1082,7 +1135,17 @@ export const gradeCardApi = api<GradeCardRequest, GradeCardResponse>({
         log.error("Failed to persist FSRS review log", { error: logError.message});
     }
     
-    return { sessionState: reviveSessionState(newState) };
+    // Convert next card to StudyCard for frontend
+    //TODO make the return field proper
+    const nextCard = newState.currentCard ? cardToStudyCard(newState.currentCard) : null;
+    // Build frontend-friendly DTO
+    const dto = {
+      sessionId: newState.id,
+      nextCard,
+      stats: newState.stats,
+      // Add any other fields the frontend needs
+    };
+    return dto;
 });
 
 /**
