@@ -207,6 +207,9 @@ export interface CreateSeriesRequest {
 export interface SeriesByIdRequest {
   seriesId: string;
 }
+export interface SeriesBySlugRequest {
+  seriesSlug: string;
+}
 export interface SingleSeriesResponse {
   series: Series;
 }

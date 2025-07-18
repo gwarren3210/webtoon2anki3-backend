@@ -17,7 +17,7 @@ import type {
   ArraySeriesResponse, SingleSeriesResponse,
   ListChaptersRequest, ListChaptersResponse,
   ListCardsRequest, ListCardsResponse,
-  SeriesByIdRequest, StudyCard,
+  SeriesByIdRequest, SeriesBySlugRequest, StudyCard,
   ChapterByIdRequest, SingleChapterResponse,
   // Add new types
   GetUserStatsRequest, GetUserStatsResponse, GetUserLibraryRequest, GetUserLibraryResponse,
@@ -503,13 +503,31 @@ export const searchSeries = api<SearchSeriesQueryRequest, ArraySeriesResponse>({
 
 export const getSeriesById = api<SeriesByIdRequest, SingleSeriesResponse>({
   method: "GET",
-  path: "/supabase/series/:seriesId",
+  path: "/supabase/series/id/:seriesId",
   expose: true,
 }, async ({ seriesId }) => {
   const { data, error } = await supabase
     .from('series')
     .select('*')
     .eq('id', seriesId)
+    .maybeSingle();
+  if (error || !data) {
+    throw APIError.notFound("Series not found").withDetails({ error: error?.message });
+  }
+  // Map DB fields to SingleSeriesResponse shape
+  return { series: convertToSeries(data) };
+});
+
+
+export const getSeriesBySlugApi = api<SeriesBySlugRequest, SingleSeriesResponse>({
+  method: "GET",
+  path: "/supabase/series/slug/:seriesSlug",
+  expose: true,
+}, async ({ seriesSlug }) => {
+  const { data, error } = await supabase
+    .from('series')
+    .select('*')
+    .eq('slug', seriesSlug)
     .maybeSingle();
   if (error || !data) {
     throw APIError.notFound("Series not found").withDetails({ error: error?.message });
