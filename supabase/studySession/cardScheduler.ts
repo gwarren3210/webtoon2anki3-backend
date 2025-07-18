@@ -65,6 +65,11 @@ export class CardScheduler {
    * @returns A numeric priority value.
    */
   private getSortPriority(progress: FSRSProgress): number {
+    if (!progress.due || typeof progress.due.getTime !== 'function') {
+      log.error('[CardScheduler] progress.due is not a Date', { due: progress.due, type: typeof progress.due, progress });
+    } else {
+      log.info('[CardScheduler] About to call getTime on progress.due', { due: progress.due, type: typeof progress.due, progress });
+    }
     const now = new Date().getTime();
     if (progress.state === FSRSState.New) return now + 1e13 + (progress.id.charCodeAt(0) * NEW_CARD_PENALTY); 
     const dueDate = progress.due.getTime();
