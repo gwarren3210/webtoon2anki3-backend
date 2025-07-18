@@ -1116,12 +1116,10 @@ export const gradeCardApi = api<GradeCardRequest, GradeCardResponse>({
     path: "/study/session/grade",
     expose: true,
 }, async ({ sessionId, rating }) => {
-    //const { Rating } = await import('ts-fsrs');
-    //const fsrsRating = rating as typeof Rating[keyof typeof Rating];
-
+    log.info("[gradeCardApi] called", { sessionId, rating });
     // This function now returns all the data we need to persist
     const { newState, updatedProgress, reviewLog } = await gradeCardLogic(sessionId, rating);
-
+    log.info("[gradeCardApi] gradeCardLogic result", { newState, updatedProgress, reviewLog });
     // Persist FSRSProgress to the database
     const { error: progressError } = await supabase
         .from('fsrs_progress')
@@ -1138,11 +1136,9 @@ export const gradeCardApi = api<GradeCardRequest, GradeCardResponse>({
             learning_steps: updatedProgress.learning_steps
         })
         .eq('id', updatedProgress.id);
-        
     if (progressError) {
         log.error("Failed to persist FSRS progress", { error: progressError.message });
     }
-    
     // Persist FSRSReviewLog to the database
     const { error: logError } = await supabase
         .from('fsrs_review_logs')
@@ -1160,21 +1156,30 @@ export const gradeCardApi = api<GradeCardRequest, GradeCardResponse>({
             review: reviewLog.review,
             learning_steps: reviewLog.learning_steps
         });
-
     if (logError) {
         log.error("Failed to persist FSRS review log", { error: logError.message});
     }
-    
     // Convert next card to StudyCard for frontend
-    //TODO make the return field proper
-    const nextCard = newState.currentCard ? cardToStudyCard(newState.currentCard) : null;
+    let nextCard = null;
+    if (newState.currentCard) {
+      try {
+        log.info("[gradeCardApi] About to call cardToStudyCard", { currentCard: newState.currentCard });
+        nextCard = cardToStudyCard(newState.currentCard);
+        log.info("[gradeCardApi] cardToStudyCard result", { nextCard });
+      } catch (err) {
+        log.error("[gradeCardApi] Error in cardToStudyCard", { error: err, currentCard: newState.currentCard });
+        throw err;
+      }
+    }
     // Build frontend-friendly DTO
+    log.info("[gradeCardApi] About to build DTO", { sessionId: newState.id, nextCard, stats: newState.stats });
     const dto = {
       sessionId: newState.id,
       nextCard,
       stats: newState.stats,
       // Add any other fields the frontend needs
     };
+    log.info("[gradeCardApi] DTO created", { dto });
     return dto;
 });
 

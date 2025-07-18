@@ -144,7 +144,7 @@ export class CardScheduler {
         log.error('[CardScheduler] Invalid bucket key for card, assigning to Learning', { cardId: card.id, state: progress.state });
         key = FSRSState.Learning;
       }
-      log.info('[CardScheduler] Assigning card to bucket', { cardId: card.id, bucket: key });
+      //log.info('[CardScheduler] Assigning card to bucket', { cardId: card.id, bucket: key });
       buckets[key].push(card);
     }
     log.info('[CardScheduler] Buckets created', { buckets });
