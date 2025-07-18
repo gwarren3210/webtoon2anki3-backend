@@ -206,7 +206,7 @@ export interface ListChaptersResponse {
 
 // Card endpoints
 export interface ChapterByIdRequest {
-  chapterId: string
+  chapterSlug: string
 }
 export interface SingleChapterResponse {
   chapter: Chapter

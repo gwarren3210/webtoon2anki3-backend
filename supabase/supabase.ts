@@ -605,15 +605,15 @@ export const listChapters = api<ListChaptersRequest, ListChaptersResponse>({
   return { chapters: (data || []).map(convertToChapter) };
 });
 
-export const getChapterById = api<ChapterByIdRequest, SingleChapterResponse>({
+export const getChapterBySlug = api<ChapterByIdRequest, SingleChapterResponse>({
   method: "GET",
-  path: "/supabase/chapters/:chapterId",
+  path: "/supabase/chapters/:chapterSlug",
   expose: true,
-}, async ({ chapterId }) => {
+}, async ({ chapterSlug }) => {
   const { data, error } = await supabase
     .from('chapters')
     .select('*')
-    .eq('id', chapterId)
+    .eq('slug', chapterSlug)
     .maybeSingle();
   if (error || !data) {
     throw APIError.notFound("Chapter not found").withDetails({ error: error?.message });
