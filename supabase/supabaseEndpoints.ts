@@ -1,6 +1,7 @@
 // All endpoint request/response types for supabase.ts
 import { SessionState, StudyProgress, ProgressStats } from './studySession/types'
-import { Rating, FSRSProgress } from './fsrs/types'
+import { Rating, FSRSProgress, FSRSState } from './fsrs/types'
+import { StateType as FSRSStateType } from 'ts-fsrs'
 
 export interface UserStats {
   totalCards: number;
@@ -85,7 +86,7 @@ export interface StudyCard {
   pronunciation: string;
   exampleSentence?: string;
   difficulty?: "easy" | "medium" | "hard";
-  learningState: 'new' | 'learning' | 'review' | 'mastered';
+  learningState: FSRSStateType;
   nextReviewDate?: string; // ISO string
   createdAt: string; // ISO string
   successRate: number; // (0-100)

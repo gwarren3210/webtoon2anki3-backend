@@ -63,6 +63,7 @@ import {
   toFSRSProgress,
 } from './studySession/utils';
 import { FSRSProgress, FSRSState } from './fsrs/types';
+//import { StateType as FSRSStateType } from 'ts-fsrs'
 
 /* export interface FSRSProgress {
   id: string;logic options+
@@ -853,16 +854,7 @@ const STUDY_SESSION_LIMITS = {
 
 function cardToStudyCard(card: Card): StudyCard {
   const { studyProgress } = card;
-  // Helper functions for difficulty, learningState, etc.
-  const getLearningState = (state: FSRSState): 'new' | 'learning' | 'review' | 'mastered' => {
-    switch (state) {
-      case FSRSState.New: return 'new';
-      case FSRSState.Learning: return 'learning';
-      case FSRSState.Review: return 'review';
-      case FSRSState.Relearning: return 'mastered';
-      default: return 'new';
-    }
-  };
+
   const getDifficulty = (difficulty: number): 'easy' | 'medium' | 'hard' => {
     if (difficulty <= 0.3) return 'easy';
     if (difficulty <= 0.7) return 'medium';
@@ -880,7 +872,7 @@ function cardToStudyCard(card: Card): StudyCard {
     pronunciation: '', // Add if available
     exampleSentence: '', // Add if available
     difficulty: getDifficulty(studyProgress.difficulty),
-    learningState: getLearningState(studyProgress.state),
+    learningState: studyProgress.state,
     nextReviewDate: studyProgress.due?.toISOString(),
     createdAt: studyProgress.createdAt.toISOString(),
     successRate: calculateSuccessRate(studyProgress),

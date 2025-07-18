@@ -4,6 +4,8 @@
  * This file defines the core data structures used for the FSRS implementation,
  * aligning with the `ts-fsrs` library and our database schema.
  */
+import { Card } from 'ts-fsrs'
+
 export enum FSRSState {
   New = "New",
   Learning = "Learning",

@@ -388,11 +388,21 @@ export function selectStudyWords(
 
 // Helper to convert FSRSProgressData (DB) to FSRSProgress (runtime)
 export function toFSRSProgress(data: any): FSRSProgress {
+  const due = data.due ? new Date(data.due) : new Date();
+  const createdAt = data.created_at ? new Date(data.created_at) : new Date();
+  const updatedAt = data.updated_at ? new Date(data.updated_at) : new Date();
+  const last_review = data.last_review ? new Date(data.last_review) : undefined;
+
+  if (isNaN(due.getTime())) throw new Error("Invalid due date in FSRSProgress");
+  if (isNaN(createdAt.getTime())) throw new Error("Invalid createdAt in FSRSProgress");
+  if (isNaN(updatedAt.getTime())) throw new Error("Invalid updatedAt in FSRSProgress");
+  if (last_review && isNaN(last_review.getTime())) throw new Error("Invalid last_review in FSRSProgress");
+
   return {
     id: data.id,
     userId: data.user_id,
     vocabularyId: data.vocabulary_id,
-    due: new Date(data.due),
+    due,
     stability: data.stability,
     difficulty: data.difficulty,
     elapsed_days: data.elapsed_days,
@@ -400,10 +410,10 @@ export function toFSRSProgress(data: any): FSRSProgress {
     reps: data.reps,
     lapses: data.lapses,
     state: data.state,
-    last_review: data.last_review ? new Date(data.last_review) : undefined,
+    last_review,
     learning_steps: data.learning_steps,
-    createdAt: new Date(data.created_at),
-    updatedAt: new Date(data.updated_at),
+    createdAt,
+    updatedAt,
   };
 }
 
