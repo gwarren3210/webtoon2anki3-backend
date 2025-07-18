@@ -1,7 +1,6 @@
 // All endpoint request/response types for supabase.ts
 import { SessionState, StudyProgress, ProgressStats } from './studySession/types'
-import { Rating, FSRSProgress, FSRSState } from './fsrs/types'
-import { StateType as FSRSStateType } from 'ts-fsrs'
+import { Rating, FSRSProgress, FSRSState, FSRSStateType } from './fsrs/types'
 
 export interface UserStats {
   totalCards: number;
