@@ -24,6 +24,7 @@ import {
 import { CardScheduler } from './cardScheduler';
 import { isCardDue, daysUntilReview } from './progressTracker';
 import { FSRSState } from '../fsrs/types';
+import log from 'encore.dev/log';
 
 export class ActiveStudySession {
   private state: SessionState;
@@ -44,7 +45,9 @@ export class ActiveStudySession {
     allCards: Card[],
     scheduler: CardScheduler
   ) {
+    log.info('[ActiveStudySession] constructor called', { userId, sessionId, deckPublicId, allCardsLength: allCards.length });
     this.queues = scheduler.createSessionBuckets();
+    log.info('[ActiveStudySession] Queues initialized', { queues: this.queues });
     this.allCards = allCards;
     this.state = {
       id: sessionId,
@@ -78,16 +81,20 @@ export class ActiveStudySession {
    * Draws the next card from the buckets using round robin.
    */
   public getNextCard(): Card | null {
+    log.info('[ActiveStudySession] getNextCard called', { bucketOrder: this.bucketOrder, bucketIndex: this.bucketIndex });
     const buckets = this.queues;
     for (let i = 0; i < this.bucketOrder.length; i++) {
       const bucketName = this.bucketOrder[this.bucketIndex];
       this.bucketIndex = (this.bucketIndex + 1) % this.bucketOrder.length;
+      log.info('[ActiveStudySession] Checking bucket', { bucketName, bucket: buckets[bucketName] });
       if (buckets[bucketName] && buckets[bucketName].length > 0) {
         const card = buckets[bucketName].shift()!;
+        log.info('[ActiveStudySession] Card drawn from bucket', { bucketName, card });
         this.state.currentCard = card;
         return card;
       }
     }
+    log.info('[ActiveStudySession] No cards left in any bucket');
     this.state.currentCard = null;
     return null;
   }
@@ -96,8 +103,10 @@ export class ActiveStudySession {
    * Grades the current card and re-inserts if due again today.
    */
   public gradeCard(rating: FSRSRating): { updatedProgress: FSRSProgress, reviewLog: FSRSReviewLog } | null {
+    log.info('[ActiveStudySession] gradeCard called', { rating, currentCard: this.state.currentCard });
     const currentCard = this.state.currentCard;
     if (!currentCard) {
+      log.warn('[ActiveStudySession] No current card to grade');
       return null;
     }
     const { updatedProgress, reviewLog } = processFSRSReview(
@@ -119,6 +128,7 @@ export class ActiveStudySession {
     });
     // --- New: Update cardRatings ---
     if (!this.state.cardRatings[currentCard.id]) {
+      log.info('[ActiveStudySession] Initializing cardRatings array', { cardId: currentCard.id });
       this.state.cardRatings[currentCard.id] = [];
     }
     this.state.cardRatings[currentCard.id].push(rating);
@@ -126,9 +136,20 @@ export class ActiveStudySession {
     const now = new Date();
     const due = new Date(updatedProgress.due);
     if ((due.getTime() - now.getTime()) < 24 * 60 * 60 * 1000) {
+      log.info('[ActiveStudySession] Card is due again today', { cardId: currentCard.id, state: updatedProgress.state });
       if (this.queues[updatedProgress.state]) {
+        log.info('[ActiveStudySession] Pushing card to queue', { state: updatedProgress.state });
+        if (!Array.isArray(this.queues[updatedProgress.state])) {
+          log.error('[ActiveStudySession] Queue is not an array', { state: updatedProgress.state, queue: this.queues[updatedProgress.state] });
+          this.queues[updatedProgress.state] = [];
+        }
         this.queues[updatedProgress.state].push(currentCard);
       } else {
+        log.warn('[ActiveStudySession] No queue for state, defaulting to Learning', { state: updatedProgress.state });
+        if (!Array.isArray(this.queues[FSRSState.Learning])) {
+          log.error('[ActiveStudySession] Learning queue is not an array', { queue: this.queues[FSRSState.Learning] });
+          this.queues[FSRSState.Learning] = [];
+        }
         this.queues[FSRSState.Learning].push(currentCard);
       }
     }
