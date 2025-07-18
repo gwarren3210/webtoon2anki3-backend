@@ -499,8 +499,15 @@ export async function getCardsWithProgressForChapter(userId: string, chapterId: 
 } 
 
 function reviveFSRSProgress(progress: any): FSRSProgress {
+  // Map numeric state to string enum if needed
+  let state = progress.state;
+  if (typeof state === 'number') {
+    // Map 0,1,2,3 to 'New','Learning','Review','Relearning'
+    state = ['New', 'Learning', 'Review', 'Relearning'][state] as FSRSState;
+  }
   return {
     ...progress,
+    state,
     due: progress.due ? new Date(progress.due) : new Date(),
     last_review: progress.last_review ? new Date(progress.last_review) : undefined,
     createdAt: progress.createdAt ? new Date(progress.createdAt) : new Date(),
