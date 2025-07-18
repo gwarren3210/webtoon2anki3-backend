@@ -869,13 +869,17 @@ export const startStudySessionApi = api<StartStudySessionRequest, StartStudySess
   expose: true,
 }, async ({ userId, publicId }) => {
   try {
+    log.info("[startStudySessionApi] Public Id received", { publicId });
     const parsedId = parsePublicId(publicId);
-    log.info("Public Id: ", ...publicId)
+    log.info("[startStudySessionApi] Parsed publicId", { parsedId });
     
     // Check/create deck for chapter type sessions
     if (parsedId.type === 'chapter') {
+      log.info("[startStudySessionApi] Session type is chapter", { seriesSlug: parsedId.seriesSlug, chapterNumber: parsedId.chapterNumber });
       const series = await getSeriesBySlug(parsedId.seriesSlug);
+      log.info("[startStudySessionApi] Series fetched", { series });
       const chapter = await getChapterByNumber(series.id, parsedId.chapterNumber);
+      log.info("[startStudySessionApi] Chapter fetched", { chapter });
       
       // Check if deck exists for this user/chapter
       const { data: existingDeck, error: deckError } = await supabase
@@ -884,9 +888,11 @@ export const startStudySessionApi = api<StartStudySessionRequest, StartStudySess
         .eq('user_id', userId)
         .eq('chapter_id', chapter.id)
         .maybeSingle();
+      log.info("[startStudySessionApi] Deck existence checked", { existingDeck, deckError });
       
       // Create deck if it doesn't exist
       if (!existingDeck && !deckError) {
+        log.info("[startStudySessionApi] Creating new deck for user/chapter", { userId, chapterId: chapter.id });
         const { data: newDeck, error: createError } = await supabase
           .from('decks')
           .insert({
@@ -896,9 +902,9 @@ export const startStudySessionApi = api<StartStudySessionRequest, StartStudySess
           })
           .select('id')
           .single();
-        
+        log.info("[startStudySessionApi] Deck creation result", { newDeck, createError });
         if (createError || !newDeck) {
-          log.warn('Failed to create deck for user/chapter', { userId, chapterId: chapter.id, error: createError?.message });
+          log.warn('[startStudySessionApi] Failed to create deck for user/chapter', { userId, chapterId: chapter.id, error: createError?.message });
         }
       }
     }
@@ -907,21 +913,26 @@ export const startStudySessionApi = api<StartStudySessionRequest, StartStudySess
     let progressMap;
     let vocabWithProgress;
     if (parsedId.type === 'all') {
-      // Simpler logic: get all fsrs_progress for the user
+      log.info("[startStudySessionApi] Session type is 'all'");
       const { data: progressData, error: progressError } = await supabase
         .from('fsrs_progress')
         .select('*')
         .eq('user_id', userId);
+      log.info("[startStudySessionApi] Progress data fetched", { progressData, progressError });
       if (progressError || !progressData || progressData.length === 0) {
+        log.error('[startStudySessionApi] No study progress found for this user', { progressError });
         throw APIError.notFound('No study progress found for this user');
       }
       const wordIds = progressData.map((p: any) => p.vocabulary_id);
+      log.info("[startStudySessionApi] Word IDs from progress", { wordIds });
       // Fetch word data for these vocabulary IDs
       const { data: words, error: wordsError } = await supabase
         .from('words')
         .select('id, word, definition')
         .in('id', wordIds);
+      log.info("[startStudySessionApi] Words fetched for user", { words, wordsError });
       if (wordsError || !words || words.length === 0) {
+        log.error('[startStudySessionApi] No words found for this user', { wordsError });
         throw APIError.notFound('No words found for this user');
       }
       // Build chapterWords array (minimal fields)
@@ -933,42 +944,75 @@ export const startStudySessionApi = api<StartStudySessionRequest, StartStudySess
           words: word || { id, word: '', definition: '' },
         };
       });
+      log.info("[startStudySessionApi] Built chapterWords array", { chapterWords });
       progressMap = new Map((progressData || []).map(p => [p.vocabulary_id, p]));
+      log.info("[startStudySessionApi] Built progressMap", { progressMapSize: progressMap.size });
     } else if (parsedId.type === 'chapter') {
+      log.info("[startStudySessionApi] Session type is 'chapter'");
       const series = await getSeriesBySlug(parsedId.seriesSlug);
+      log.info("[startStudySessionApi] Series fetched", { series });
       const chapter = await getChapterByNumber(series.id, parsedId.chapterNumber);
+      log.info("[startStudySessionApi] Chapter fetched", { chapter });
       chapterWords = await getChapterWordsHelper([chapter.id]);
+      log.info("[startStudySessionApi] Chapter words fetched", { chapterWords });
+      if (!Array.isArray(chapterWords)) {
+        log.error('[startStudySessionApi] chapterWords is not an array', { chapterWords });
+        throw APIError.internal('Failed to load chapter words');
+      }
       const wordIds = chapterWords.map(cw => cw.word_id);
+      log.info("[startStudySessionApi] Word IDs from chapterWords", { wordIds });
       const progressData = await getUserProgressHelper(userId, wordIds);
+      log.info("[startStudySessionApi] Progress data fetched for chapter", { progressData });
       progressMap = new Map((progressData || []).map(p => [p.vocabulary_id, p]));
+      log.info("[startStudySessionApi] Built progressMap for chapter", { progressMapSize: progressMap.size });
       await createMissingProgressRecords(userId, chapterWords, progressMap);
+      log.info("[startStudySessionApi] Ensured missing progress records");
     } else if (parsedId.type === 'series') {
+      log.info("[startStudySessionApi] Session type is 'series'");
       const series = await getSeriesBySlug(parsedId.seriesSlug);
+      log.info("[startStudySessionApi] Series fetched", { series });
       const chapters = await getChaptersBySeries(series.id);
+      log.info("[startStudySessionApi] Chapters fetched for series", { chapters });
       const chapterIds = chapters.map(c => c.id);
+      log.info("[startStudySessionApi] Chapter IDs for series", { chapterIds });
       chapterWords = await getChapterWordsHelper(chapterIds);
+      log.info("[startStudySessionApi] Chapter words fetched for series", { chapterWords });
+      if (!Array.isArray(chapterWords)) {
+        log.error('[startStudySessionApi] chapterWords is not an array (series)', { chapterWords });
+        throw APIError.internal('Failed to load chapter words for series');
+      }
       const wordIds = chapterWords.map(cw => cw.word_id);
+      log.info("[startStudySessionApi] Word IDs from chapterWords (series)", { wordIds });
       const progressData = await getUserProgressHelper(userId, wordIds);
+      log.info("[startStudySessionApi] Progress data fetched for series", { progressData });
       progressMap = new Map((progressData || []).map(p => [p.vocabulary_id, p]));
+      log.info("[startStudySessionApi] Built progressMap for series", { progressMapSize: progressMap.size });
       await createMissingProgressRecords(userId, chapterWords, progressMap);
+      log.info("[startStudySessionApi] Ensured missing progress records for series");
     } else {
+      log.error('[startStudySessionApi] Invalid session type', { parsedId });
       throw APIError.invalidArgument("Invalid session type");
     }
+    log.info("[startStudySessionApi] Selecting study words", { chapterWordsLength: chapterWords.length, progressMapSize: progressMap.size });
     const selectedWords = selectStudyWords(
       chapterWords,
       progressMap,
       STUDY_SESSION_LIMITS.MAX_NEW_WORDS,
       STUDY_SESSION_LIMITS.MAX_TOTAL_WORDS
     );
+    log.info("[startStudySessionApi] Selected study words", { selectedWords });
     vocabWithProgress = buildVocabularyWithProgress(selectedWords, progressMap);
+    log.info("[startStudySessionApi] Built vocabWithProgress", { vocabWithProgress });
     const sessionState = await startStudySession(userId, publicId, vocabWithProgress);
+    log.info("[startStudySessionApi] Session created", { sessionState, userId });
     // Ensure sessionState includes all new fields and matches API type
     return { sessionState: reviveSessionState(sessionState) };
   } catch (error: any) {
-    log.error('Study session creation failed', {
+    log.error('[startStudySessionApi] Study session creation failed', {
       userId,
       publicId,
       error: error.message,
+      stack: error.stack,
     });
     if (error instanceof APIError) {
       throw error;
