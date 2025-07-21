@@ -190,7 +190,7 @@ export interface Card {
   korean: string;
   english: string;
   importanceScore: number;
-  studyProgress: FSRSProgress;
+  studyProgress: FSRSProgress | null;
 }
 
 export type SessionQueues = {

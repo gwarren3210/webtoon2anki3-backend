@@ -61,6 +61,7 @@ import {
   getCardsWithProgressForChapter,
   createInitialFSRSProgress,
   toFSRSProgress,
+  getChapterCards,
 } from './studySession/utils';
 import { FSRSProgress, FSRSState } from './fsrs/types';
 //import { StateType as FSRSStateType } from 'ts-fsrs'
@@ -632,7 +633,7 @@ export const getChapterBySlug = api<ChapterByIdRequest, SingleChapterResponse>({
   method: "GET",
   path: "/supabase/chapters/:chapterSlug",
   expose: true,
-}, async ({ chapterSlug }) => {
+}, async ({ chapterSlug, userId }) => {
   const { data, error } = await supabase
     .from('chapters')
     .select('*')
@@ -641,9 +642,18 @@ export const getChapterBySlug = api<ChapterByIdRequest, SingleChapterResponse>({
   if (error || !data) {
     throw APIError.notFound("Chapter not found").withDetails({ error: error?.message });
   }
+  
+  // Convert to chapter format
+  const chapter = convertToChapter(data);
+  
+  // Fetch cards for this chapter with user progress if userId is provided
+  const cards = await getChapterCards(chapter.id, userId);
+  const studyCards = cards.map(cardToStudyCard)
+  
   // Map DB fields to SingleChapterResponse shape
   return {
-    chapter: convertToChapter(data)
+    chapter,
+    studyCards,
   };
 });
 
@@ -872,6 +882,9 @@ const STUDY_SESSION_LIMITS = {
 
 function cardToStudyCard(card: Card): StudyCard {
   const { studyProgress } = card;  log.info("cardToStudyCard input", { studyProgress, card });
+  if (!studyProgress){
+    throw APIError.internal("Missing studyProgress in cardToStudyCard").withDetails({ card });
+  }
 
 
   // Step 1: Add logging for invalid dates

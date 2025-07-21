@@ -3,8 +3,7 @@ import { supabase } from "../client";
 import { APIError } from "encore.dev/api";
 import { FSRSState, FSRSProgress } from "../fsrs/types";
 import log from "encore.dev/log";
-import { Card } from './types';
-import { Chapter, Series } from "../supabaseEndpoints";
+import { Chapter, Series, Card } from "../supabaseEndpoints";
 
 // Define the type for progress data from database
 /* interface FSRSProgressData {
@@ -494,6 +493,83 @@ export async function getCardsWithProgressForChapter(userId: string, chapterId: 
       english: cw.words.definition,
       importanceScore: cw.importance_score || 0,
       studyProgress: progress,
+    };
+  });
+} 
+
+/**
+ * Fetches all cards for a chapter with existing study progress (if any).
+ * @param chapterId - The chapter ID to fetch cards for
+ * @param userId - The user ID to get progress for (optional)
+ * @returns Array of Card objects with existing study progress or null
+ */
+export async function getChapterCards(chapterId: string, userId?: string): Promise<Card[]> {
+  log.info('[getChapterCards] Called', { chapterId, userId });
+  
+  let chapterWords: any[];
+  
+  if (userId) {
+    // Use JOIN query when userId is provided
+    const { data, error } = await (supabase
+      .from('chapter_words')
+      .select(`
+        word_id,
+        importance_score,
+        words!inner(
+          id,
+          word,
+          definition
+        ),
+        fsrs_progress!left(*)
+      `)
+      .eq('chapter_id', chapterId)
+      .eq('fsrs_progress.user_id', userId) as any);
+    
+    if (error) {
+      log.error('[getChapterCards] Failed to fetch cards with progress', { chapterId, error });
+      return [];
+    }
+    chapterWords = data || [];
+  } else {
+    // Simple query when no userId provided
+    const { data, error } = await supabase
+      .from('chapter_words')
+      .select(`
+        word_id,
+        importance_score,
+        words!inner(
+          id,
+          word,
+          definition
+        )
+      `)
+      .eq('chapter_id', chapterId);
+    
+    if (error) {
+      log.error('[getChapterCards] Failed to fetch cards', { chapterId, error });
+      return [];
+    }
+    chapterWords = data || [];
+  }
+  
+  // Convert to Card format with existing progress or null
+  return chapterWords.map(cw => {
+    const wordData = (cw as any).words;
+    
+    // Check if user has existing progress for this word
+    let studyProgress: FSRSProgress | null = null;
+    if (userId && (cw as any).fsrs_progress && (cw as any).fsrs_progress.length > 0) {
+      // Use existing progress data from JOIN
+      const progressData = (cw as any).fsrs_progress[0];
+      studyProgress = toFSRSProgress(progressData);
+    }
+    
+    return {
+      id: wordData.id,
+      korean: wordData.word,
+      english: wordData.definition,
+      importanceScore: cw.importance_score || 0,
+      studyProgress,
     };
   });
 } 

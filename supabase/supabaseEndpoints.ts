@@ -75,7 +75,7 @@ export interface Card {
    korean: string;
    english: string;
    importanceScore: number;
-   studyProgress: FSRSProgress;
+   studyProgress: FSRSProgress | null;
 }
 
 export interface StudyCard {
@@ -225,10 +225,12 @@ export interface ListChaptersResponse {
 
 // Card endpoints
 export interface ChapterByIdRequest {
-  chapterSlug: string
+  chapterSlug: string;
+  userId?: string;
 }
 export interface SingleChapterResponse {
-  chapter: Chapter
+  chapter: Chapter,
+  studyCards: StudyCard[],
 }
 
 export interface AddCardRequest {
