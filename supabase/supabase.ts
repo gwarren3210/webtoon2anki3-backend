@@ -883,7 +883,19 @@ const STUDY_SESSION_LIMITS = {
 function cardToStudyCard(card: Card): StudyCard {
   const { studyProgress } = card;  log.info("cardToStudyCard input", { studyProgress, card });
   if (!studyProgress){
-    throw APIError.internal("Missing studyProgress in cardToStudyCard").withDetails({ card });
+    return {
+      id: card.id,
+      korean: card.korean,
+      english: card.english,
+      pronunciation: '', // Add if available
+      exampleSentence: '', // Add if available
+      difficulty: undefined,
+      learningState: undefined,
+      nextReviewDate: undefined,
+      createdAt: undefined,
+      successRate: undefined,
+      importanceScore: card.importanceScore,
+    }
   }
 
 

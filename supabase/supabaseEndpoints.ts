@@ -82,13 +82,13 @@ export interface StudyCard {
   id: string;
   korean: string;
   english: string;
-  pronunciation: string;
+  pronunciation?: string;
   exampleSentence?: string;
   difficulty?: "easy" | "medium" | "hard";
-  learningState: FSRSStateType;
+  learningState?: FSRSStateType;
   nextReviewDate?: string; // ISO string
-  createdAt: string; // ISO string
-  successRate: number; // (0-100)
+  createdAt?: string; // ISO string
+  successRate?: number; // (0-100)
   importanceScore: number;
 }
 
