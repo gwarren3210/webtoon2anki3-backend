@@ -705,11 +705,11 @@ export const getChapterSeriesAndChapterNumber = api<GetChapterSeriesAndChapterNu
   path: "/supabase/:seriesSlug/:chapterNumber",
   expose: true,
 }, async ({ seriesSlug, chapterNumber }) => {
+  const slug = `series:${seriesSlug}:chapter:${chapterNumber}`
   const { data, error } = await supabase
     .from('chapters')
     .select('*')
-    .eq('series_slug', seriesSlug)
-    .eq('chapter_number', chapterNumber)
+    .eq('slug', slug)
     .maybeSingle();
   if (error) {
     throw APIError.internal('Failed to fetch chapter series and chapter number').withDetails({ error: error.message });
