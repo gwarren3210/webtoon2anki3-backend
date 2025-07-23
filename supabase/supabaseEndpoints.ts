@@ -78,18 +78,40 @@ export interface Card {
    studyProgress: FSRSProgress | null;
 }
 
+//import { Card as _Card, State as _State} from 'ts-fsrs'
+export declare enum _State {
+  New = 0,
+  Learning = 1,
+  Review = 2,
+  Relearning = 3
+}
+
+interface _Card {
+  due: string;
+  stability: number;
+  difficulty: number;
+  /**
+   * @deprecated This field will be removed in version 6.0.0
+   */
+  elapsed_days: number;
+  scheduled_days: number;
+  learning_steps: number;
+  reps: number;
+  lapses: number;
+  state: _State;
+  last_review?: string;
+}
+
 export interface StudyCard {
   id: string;
   korean: string;
   english: string;
   pronunciation?: string;
   exampleSentence?: string;
-  difficulty?: "easy" | "medium" | "hard";
-  learningState?: FSRSStateType;
-  nextReviewDate?: string; // ISO string
-  createdAt?: string; // ISO string
-  successRate?: number; // (0-100)
+  createdAt: string; // ISO string
+  successRate: number; // (0-100)
   importanceScore: number;
+  card: _Card | null;
 }
 
 // Add StudySessionDTO type for the new backend DTO (if not already imported)
@@ -538,6 +560,16 @@ export interface UpdateUserProgressResponse {
 // Series Search endpoint
 export interface SearchSeriesQueryRequest {
   q: string;
+}
+
+export interface GetChapterCardsRequest {
+  userId: string;
+  seriesSlug: string;
+  chapterNumber: string;
+}
+
+export interface GetChapterCardsResponse {
+  cards: StudyCard[]
 }
 // Endpoint mapping type
 export type SupabaseEndpointMap =
