@@ -14,6 +14,7 @@ import type {
   SearchSeriesQueryRequest, 
   UpdateUserProgressRequest, UpdateUserProgressResponse,
   GetChapterCardsRequest, GetChapterCardsResponse,
+  StudyCard,
 } from "./supabaseEndpoints";
 import {
   convertToSeries,
@@ -712,14 +713,17 @@ export const getChapterCards = api<GetChapterCardsRequest, GetChapterCardsRespon
   path: "/supabase/:seriesSlug/:chapterNumber/cards",
   expose: true,
 }, async ({ chapterNumber, seriesSlug, userId }) => {
-  const { data, error } = await supabase.rpc('get_chapter_words', {
-    chapter_number: chapterNumber,
-    series_slug: seriesSlug,
-    user_id: userId,
+  const { data, error } = await supabase
+    .rpc('get_chapter_cards', {
+      p_user_id: userId,
+      p_series_slug: seriesSlug,
+      p_chapter_number: chapterNumber,
   });
+
+
 
   if (error) {
     throw APIError.internal('Failed to fetch chapter words').withDetails({ error: error.message });
   }
-  return { cards: data };
+  return { cards: data as StudyCard[] };
 });
