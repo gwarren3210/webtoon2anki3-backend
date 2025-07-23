@@ -14,7 +14,7 @@ import type {
   SearchSeriesQueryRequest, 
   UpdateUserProgressRequest, UpdateUserProgressResponse,
   GetChapterCardsRequest, GetChapterCardsResponse,
-  StudyCard,
+  StudyCard, GetChapterSeriesAndChapterNumberRequest, GetChapterSeriesAndChapterNumberResponse
 } from "./supabaseEndpoints";
 import {
   convertToSeries,
@@ -700,7 +700,22 @@ export const getUserProgress = api<GetUserProgressRequest, GetUserProgressRespon
   return { seriesData, chapterData };
 }); 
 
-
+export const getChapterSeriesAndChapterNumber = api<GetChapterSeriesAndChapterNumberRequest, GetChapterSeriesAndChapterNumberResponse>({
+  method: "GET",
+  path: "/supabase/:seriesSlug/:chapterNumber",
+  expose: true,
+}, async ({ seriesSlug, chapterNumber }) => {
+  const { data, error } = await supabase
+    .from('chapters')
+    .select('*')
+    .eq('series_slug', seriesSlug)
+    .eq('chapter_number', chapterNumber)
+    .maybeSingle();
+  if (error) {
+    throw APIError.internal('Failed to fetch chapter series and chapter number').withDetails({ error: error.message });
+  }
+  return { chapter: data };
+});
 /**
  * Encore API endpoint to get words for a chapter for a user using the
  * 'get_chapter_words' RPC.
@@ -719,8 +734,6 @@ export const getChapterCards = api<GetChapterCardsRequest, GetChapterCardsRespon
       p_series_slug: seriesSlug,
       p_chapter_number: chapterNumber,
   });
-
-
 
   if (error) {
     throw APIError.internal('Failed to fetch chapter words').withDetails({ error: error.message });

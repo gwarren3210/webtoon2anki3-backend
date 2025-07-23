@@ -571,6 +571,15 @@ export interface GetChapterCardsRequest {
 export interface GetChapterCardsResponse {
   cards: StudyCard[]
 }
+
+export interface GetChapterSeriesAndChapterNumberRequest {
+  seriesSlug: string;
+  chapterNumber: string;
+}
+
+export interface GetChapterSeriesAndChapterNumberResponse {
+  chapter: Chapter;
+}
 // Endpoint mapping type
 export type SupabaseEndpointMap =
   | { path: "/auth/session"; req: GetSessionRequest; res: GetSessionResponse }
