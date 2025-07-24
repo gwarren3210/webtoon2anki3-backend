@@ -8,10 +8,10 @@ import { Card } from 'ts-fsrs'
 
 export type FSRSStateType = 'New' | 'Learning' | 'Review' | 'Relearning';
 export enum FSRSState {
-  New = "New",
-  Learning = "Learning",
-  Review = "Review",
-  Relearning = "Relearning",
+  New = 0,
+  Learning = 1,
+  Review = 2,
+  Relearning = 3,
 }
 
 // { Rating } from 'ts-fsrs'
