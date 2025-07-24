@@ -14,7 +14,9 @@ import type {
   SearchSeriesQueryRequest, 
   UpdateUserProgressRequest, UpdateUserProgressResponse,
   GetChapterCardsRequest, GetChapterCardsResponse,
-  StudyCard, GetChapterSeriesAndChapterNumberRequest, GetChapterSeriesAndChapterNumberResponse
+  StudyCard, GetChapterSeriesAndChapterNumberRequest, GetChapterSeriesAndChapterNumberResponse,
+  PostCardStatesRequest, PostCardStatesResponse,
+  PostLogsRequest, PostLogsResponse,
 } from "./supabaseEndpoints";
 import {
   convertToSeries,
@@ -716,6 +718,7 @@ export const getChapterSeriesAndChapterNumber = api<GetChapterSeriesAndChapterNu
   }
   return { chapter: data };
 });
+
 /**
  * Encore API endpoint to get words for a chapter for a user using the
  * 'get_chapter_words' RPC.
@@ -740,3 +743,76 @@ export const getChapterCards = api<GetChapterCardsRequest, GetChapterCardsRespon
   }
   return { cards: data as StudyCard[] };
 });
+
+// POST /supabase/cards
+export const postCardStates = api<PostCardStatesRequest, PostCardStatesResponse>({
+  method: "POST",
+  path: "/supabase/cards",
+  expose: true,
+  auth: true,
+}, async ({ userId, cards }) => {
+  // Upsert each card's state for the user
+  let updatedCount = 0;
+  for (const card of cards) {
+    if(!card.card){
+      log.error("Progress card missing for card: ", card)
+      continue;
+    }
+    const { error } = await supabase
+      .from('fsrs_progress')
+      .upsert({
+        user_id: userId,
+        vocabulary_id: card.id,
+        // ...other card state fields (difficulty, due, etc.)
+        // Map your Card/StudyCard fields to DB columns here
+        due: card.card.due,
+        stability: card.card.stability,
+        difficulty: card.card.difficulty,
+        elapsed_days: card.card.elapsed_days,
+        scheduled_days: card.card.scheduled_days,
+        learning_steps: card.card.learning_steps,
+        reps: card.card.reps,
+        lapses: card.card.lapses,
+        state: card.card.state,
+        last_review: card.card.last_review,
+        updated_at: new Date().toISOString(),
+      });
+    if (!error) updatedCount++;
+    // Optionally: log or collect errors for reporting
+  }
+  return { success: true, updatedCount };
+});
+
+// POST /supabase/logs
+export const postLogs = api<PostLogsRequest, PostLogsResponse>({
+  method: "POST",
+  path: "/supabase/logs",
+  expose: true,
+  auth: true,
+}, async ({ userId, logs }) => {
+  // Insert all logs for the user
+  if (!logs.length) return { success: true, insertedCount: 0 };
+  const insertData = logs.map(log => ({
+    user_id: userId,
+    card_id: log.cardId,
+    rating: log.rating,
+    state: log.state,
+    due: log.due,
+    stability: log.stability,
+    difficulty: log.difficulty,
+    elapsed_days: log.elapsed_days,
+    last_elapsed_days: log.last_elapsed_days,
+    scheduled_days: log.scheduled_days,
+    learning_steps: log.learning_steps,
+    review: log.review,
+    created_at: new Date().toISOString(),
+  }));
+  const { error, count } = await supabase
+    .from('fsrs_review_logs')
+    .insert(insertData, { count: "exact" });
+  if (error) {
+    throw APIError.internal("Failed to insert logs").withDetails({ error: error.message });
+  }
+  return { success: true, insertedCount: count ?? logs.length };
+});
+

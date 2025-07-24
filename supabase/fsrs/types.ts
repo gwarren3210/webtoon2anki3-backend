@@ -60,19 +60,19 @@ export interface FSRSProgress {
  */
 export interface FSRSReviewLog {
   id: string;
-  progressId: string; // Foreign key to FSRSProgress
+  cardId: string; // Foreign key to FSRSProgress
   userId: string;
   
   // FSRS Log Fields from `ts-fsrs`
   rating: Rating;
   state: FSRSState;
-  due: Date;
+  due: string; // ISO string
   stability: number;
   difficulty: number;
   elapsed_days: number;
   last_elapsed_days: number;
   scheduled_days: number;
-  review: Date;
+  review: string; // ISO string
   learning_steps: number;
 }
 

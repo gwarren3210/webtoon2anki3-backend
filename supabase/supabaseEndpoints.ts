@@ -1,6 +1,6 @@
 // All endpoint request/response types for supabase.ts
 import { SessionState, StudyProgress, ProgressStats } from './studySession/types'
-import { Rating, FSRSProgress, FSRSState, FSRSStateType } from './fsrs/types'
+import { Rating, FSRSReviewLog, FSRSProgress, FSRSState, FSRSStateType } from './fsrs/types'
 
 export interface UserStats {
   totalCards: number;
@@ -626,4 +626,25 @@ export type SupabaseEndpointMap =
   | { path: "/users/:userId/library"; req: GetUserLibraryRequest; res: GetUserLibraryResponse }
   | { path: "/user/:userId/progress"; req: GetUserProgressRequest; res: GetUserProgressResponse }
   | { path: "/supabase/user/preferences"; req: GetUserPreferencesRequest; res: GetUserPreferencesResponse }; 
+
+
+export interface PostCardStatesRequest {
+  userId: string;
+  cards: StudyCard[]; // or your Card type
+}
+
+export interface PostCardStatesResponse {
+  success: boolean;
+  updatedCount: number; 
+}
+
+export interface PostLogsRequest {
+  userId: string;
+  logs: Omit<FSRSReviewLog, 'id'>[];
+}
+
+export interface PostLogsResponse {
+  success: boolean;
+  insertedCount: number;
+} 
 
