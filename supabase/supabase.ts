@@ -791,8 +791,8 @@ export const postLogs = api<PostLogsRequest, PostLogsResponse>({
   // Insert all logs for the user
   if (!logs.length) return { success: true, insertedCount: 0 };
   const insertData = logs.map(log => ({
+    progress_id: log.cardId,
     user_id: userId,
-    card_id: log.cardId,
     rating: log.rating,
     state: log.state,
     due: log.due,
@@ -801,9 +801,8 @@ export const postLogs = api<PostLogsRequest, PostLogsResponse>({
     elapsed_days: log.elapsed_days,
     last_elapsed_days: log.last_elapsed_days,
     scheduled_days: log.scheduled_days,
-    learning_steps: log.learning_steps,
     review: log.review,
-    created_at: new Date().toISOString(),
+    learning_steps: log.learning_steps,
   }));
   const { error, count } = await supabase
     .from('fsrs_review_logs')
