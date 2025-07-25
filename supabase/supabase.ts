@@ -21,8 +21,10 @@ import type {
 import {
   convertToSeries,
   convertToChapter,
+  dbToStudyCard,
 } from './studySession/utils';
 import { supabaseUrl } from "./client";
+import { StudyCardDb } from "./studySession/utils";
 
 
 
@@ -737,11 +739,12 @@ export const getChapterCards = api<GetChapterCardsRequest, GetChapterCardsRespon
       p_series_slug: seriesSlug,
       p_chapter_number: chapterNumber,
   });
-  console.log('getChapterCards example', data[0], error);
+  const studyCards = data.map((c: StudyCardDb) => dbToStudyCard(c))
+  console.log('getChapterCards example', studyCards[0], error);
   if (error) {
     throw APIError.internal('Failed to fetch chapter words').withDetails({ error: error.message });
   }
-  return { cards: data as StudyCard[] };
+  return { cards: studyCards };
 });
 
 // POST /supabase/cards
