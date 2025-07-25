@@ -804,6 +804,9 @@ export const postLogs = api<PostLogsRequest, PostLogsResponse>({
     review: log.review,
     learning_steps: log.learning_steps,
   }));
+  // Debug: Log the current authenticated user's UID from Supabase
+  const { data: authUser } = await supabase.auth.getUser();
+  log.debug("Supabase auth.uid():", authUser?.user?.id);
   const { error, count } = await supabase
     .from('fsrs_review_logs')
     .insert(insertData, { count: "exact" });
