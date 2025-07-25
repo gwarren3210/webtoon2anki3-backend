@@ -291,7 +291,7 @@ export function dbToStudyCard(dbCard: StudyCardDb): StudyCard {
     pronunciation: undefined,
     exampleSentence: undefined,
     createdAt: dbCard.created_at,
-    successRate: Math.round((dbCard.reps - dbCard.lapses) / dbCard.reps * 100),
+    successRate: dbCard.reps > 0 ? Math.round((dbCard.reps - dbCard.lapses) / dbCard.reps * 100) : 0,
     importanceScore: dbCard.importance_score,
     // last_review returned but unused
     card: {
