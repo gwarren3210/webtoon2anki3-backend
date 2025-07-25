@@ -749,7 +749,6 @@ export const postCardStates = api<PostCardStatesRequest, PostCardStatesResponse>
   method: "POST",
   path: "/supabase/cards",
   expose: true,
-  auth: true,
 }, async ({ userId, cards }) => {
   // Upsert each card's state for the user
   let updatedCount = 0;
@@ -788,7 +787,6 @@ export const postLogs = api<PostLogsRequest, PostLogsResponse>({
   method: "POST",
   path: "/supabase/logs",
   expose: true,
-  auth: true,
 }, async ({ userId, logs }) => {
   // Insert all logs for the user
   if (!logs.length) return { success: true, insertedCount: 0 };
