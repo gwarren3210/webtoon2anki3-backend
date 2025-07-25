@@ -739,8 +739,9 @@ export const getChapterCards = api<GetChapterCardsRequest, GetChapterCardsRespon
       p_series_slug: seriesSlug,
       p_chapter_number: chapterNumber,
   });
-  const studyCards = data.map((c: StudyCardDb) => dbToStudyCard(c))
-  console.log('getChapterCards example', studyCards[0], error);
+  log.info('getChapterCards data', data);
+  const studyCards = data.map(dbToStudyCard)
+  log.info('getChapterCards example', studyCards);
   if (error) {
     throw APIError.internal('Failed to fetch chapter words').withDetails({ error: error.message });
   }
