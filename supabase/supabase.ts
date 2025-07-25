@@ -737,7 +737,7 @@ export const getChapterCards = api<GetChapterCardsRequest, GetChapterCardsRespon
       p_series_slug: seriesSlug,
       p_chapter_number: chapterNumber,
   });
-
+  console.log('getChapterCards example', data[0], error);
   if (error) {
     throw APIError.internal('Failed to fetch chapter words').withDetails({ error: error.message });
   }
