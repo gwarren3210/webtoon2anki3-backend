@@ -26,6 +26,16 @@ interface AddSeriesResponse {
   matches?: MalSearchResult[];
 }
 
+interface SearchMalParams {
+  title: string;
+  type: "anime" | "manga";
+}
+
+interface SearchMalResponse {
+  results: any[];
+  count: number;
+}
+
 const malClientIdSecret = secret("MAL_CLIENT_ID");
 
 function getMalClientId(): string {
@@ -65,7 +75,7 @@ export const addSeries = api<AddSeriesParams, AddSeriesResponse>(
         });
         skippedCount++;
       } else {
-        const newSeries = await insertSeries(node, type);
+        const newSeries = await insertMalSeries(node, type);
         const { id, main_picture, ...rest } = node;
         resultsWithStatus.push({
           malId,
@@ -85,6 +95,21 @@ export const addSeries = api<AddSeriesParams, AddSeriesResponse>(
   }
 );
 
+export const searchMal = api<SearchMalParams, SearchMalResponse>(
+  { expose: true, method: "GET", path: "/search" },
+  async (params): Promise<SearchMalResponse> => {
+    const { title, type } = params;
+    log.info("MAL search called", { title, type });
+    
+    const results = await searchMalByTitle(title, type);
+    
+    return {
+      results,
+      count: results.length,
+    };
+  }
+);
+
 /**
  * Search MAL for a series by title.
  * Returns all matches as an array of MalSearchResult.
@@ -96,7 +121,7 @@ async function searchMalByTitle(title: string, type: "anime" | "manga"): Promise
   const fields = [
     "id,title,main_picture,alternative_titles,start_date,end_date,synopsis,mean,rank,popularity,num_list_users,num_scoring_users,nsfw,created_at,updated_at,media_type,status,genres,my_list_status,num_episodes,num_volumes,num_chapters,start_season,broadcast,source,average_episode_duration,rating,pictures,background,related_anime,related_manga,recommendations,studios,statistics,authors{first_name,last_name},serialization{name}"
   ];
-  const url = `https://api.myanimelist.net/v2/manga?q=${encodeURIComponent(title)}&limit=10&fields=${fields}`;
+  const url = `https://api.myanimelist.net/v2/${endpoint}?q=${encodeURIComponent(title)}&limit=10&fields=${fields}`;
   const resp = await fetch(url, {
     headers: { "X-MAL-CLIENT-ID": clientId },
   });
@@ -136,7 +161,7 @@ async function checkSeriesExists(malId: number): Promise<boolean> {
  * @param type - 'anime' or 'manga'
  * @returns The newly inserted series record.
  */
-async function insertSeries(metadata: any, type: "anime" | "manga"): Promise<{ id: string }> {
+async function insertMalSeries(metadata: any, type: "anime" | "manga"): Promise<{ id: string }> {
   const { data, error } = await supabase.from('mal_series').insert({
     mal_id: metadata.id,
     type: metadata.media_type,

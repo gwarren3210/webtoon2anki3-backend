@@ -29,7 +29,7 @@
     "@paddle-js-models/ocr": "^4.1.1",
     "@supabase/supabase-js": "^2.50.1",
     "axios": "^1.9.0",
-    "encore.dev": "^1.48.2",
+    "encore.dev": "^1.48.13",
     "ocr-space-api-wrapper": "^2.4.0",
     "papago-translate": "^0.1.1",
     "sharp": "^0.34.2",
