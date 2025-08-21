@@ -2,7 +2,7 @@ import { api, APIError } from "encore.dev/api";
 import log from "encore.dev/log";
 import { MalSeries } from "./types";
 import { secret } from "encore.dev/config";
-import { supabase } from "../supabase/client";
+import { supabase, supabaseAdmin } from "../supabase/client";
 
 interface AddSeriesParams {
   title: string;
@@ -173,7 +173,7 @@ async function checkSeriesExists(malId: number): Promise<boolean> {
  */
 async function upsertMalSeries(metadataArray: any[]): Promise<Array<{ id: string; inserted: boolean }>> {
   const entries = metadataArray.map(mapMalToDB);
-  const { data, error } = await supabase.from('mal_series')
+  const { data, error } = await supabaseAdmin.from('mal_series')
     .upsert(entries, { 
       onConflict: 'mal_id',
       ignoreDuplicates: false 
