@@ -102,7 +102,7 @@ export const searchMal = api<SearchMalParams, SearchMalResponse>(
     log.info("MAL search called", { title, type });
     
     const results = await searchMalByTitle(title, type);
-    
+
     return {
       results,
       count: results.length,
@@ -133,7 +133,7 @@ async function searchMalByTitle(title: string, type: "anime" | "manga"): Promise
   if (!data.data || data.data.length === 0) {
     return [];
   }
-  return data.data.map(entry => entry.node);
+  return data.data.map(entry => entry.node).filter(node=>node.media_type==="manhwa");
 }
 
 /**
