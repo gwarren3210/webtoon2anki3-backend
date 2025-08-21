@@ -62,28 +62,27 @@ export const addSeries = api<AddSeriesParams, AddSeriesResponse>(
     const resultsWithStatus: MalSearchResult[] = [];
     let insertedCount = 0;
     let skippedCount = 0;
-    for (const node of searchResults) {
-      const malId = node.id;
-      const exists = await checkSeriesExists(malId);
-      if (exists) {
-        const { id, main_picture, ...rest } = node;
-        resultsWithStatus.push({
-          malId,
-          imageUrl: node.main_picture?.large || node.main_picture?.medium || undefined,
-          ...rest,
-          inserted: false,
-        });
-        skippedCount++;
-      } else {
-        const newSeries = await insertMalSeries(node, type);
-        const { id, main_picture, ...rest } = node;
-        resultsWithStatus.push({
-          malId,
-          imageUrl: node.main_picture?.large || node.main_picture?.medium || undefined,
-          ...rest,          inserted: true,
-          uuid: newSeries.id
-        });
+    // Upsert all series at once
+    const upsertResults = await upsertMalSeries(searchResults);
+    
+    // Map results back to the original format
+    for (let i = 0; i < searchResults.length; i++) {
+      const node = searchResults[i];
+      const upsertResult = upsertResults[i];
+      const { id, main_picture, ...rest } = node;
+      
+      resultsWithStatus.push({
+        malId: node.id,
+        imageUrl: node.main_picture?.large || node.main_picture?.medium || undefined,
+        ...rest,
+        inserted: upsertResult.inserted,
+        uuid: upsertResult.id
+      });
+      
+      if (upsertResult.inserted) {
         insertedCount++;
+      } else {
+        skippedCount++;
       }
     }
     log.info("MAL addSeries completed", { title, type, inserted: insertedCount, skipped: skippedCount });
@@ -102,9 +101,21 @@ export const searchMal = api<SearchMalParams, SearchMalResponse>(
     log.info("MAL search called", { title, type });
     
     const results = await searchMalByTitle(title, type);
-
+    const upsertResults = await upsertMalSeries(results);
+    const insertedCount = upsertResults.filter(r => r.inserted).length;
+    const skippedCount = upsertResults.filter(r => !r.inserted).length;
+    
+    log.info("MAL search upsert completed", { title, type, inserted: insertedCount, skipped: skippedCount });
+    
+    // Map results to include insertion status
+    const mappedResults = results.map((node, index) => ({
+      ...node,
+      inserted: upsertResults[index].inserted,
+      uuid: upsertResults[index].id
+    }));
+    
     return {
-      results,
+      results: mappedResults,
       count: results.length,
     };
   }
@@ -156,13 +167,34 @@ async function checkSeriesExists(malId: number): Promise<boolean> {
 }
 
 /**
- * Insert a new series into the database.
- * @param metadata - MAL metadata object
- * @param type - 'anime' or 'manga'
- * @returns The newly inserted series record.
+ * Upsert multiple series into the database.
+ * @param metadataArray - Array of MAL metadata objects
+ * @returns Array of upserted series records with insertion status.
  */
-async function insertMalSeries(metadata: any, type: "anime" | "manga"): Promise<{ id: string }> {
-  const { data, error } = await supabase.from('mal_series').insert({
+async function upsertMalSeries(metadataArray: any[]): Promise<Array<{ id: string; inserted: boolean }>> {
+  const entries = metadataArray.map(mapMalToDB);
+  const { data, error } = await supabase.from('mal_series')
+    .upsert(entries, { 
+      onConflict: 'mal_id',
+      ignoreDuplicates: false 
+    })
+    .select('id, mal_id')
+
+  if (error) {
+    log.error("failed to upsert series into supabase", { error: error.message });
+    throw APIError.internal("failed to upsert series").withDetails({ supabaseError: error });
+  }
+  
+  // Map back to original metadata to determine insertion status
+  return data.map(dbRecord => {
+    const originalMetadata = metadataArray.find(m => m.id === dbRecord.mal_id);
+    const wasInserted = !originalMetadata?.updated_at || originalMetadata.updated_at === originalMetadata.created_at;
+    return { id: dbRecord.id, inserted: wasInserted };
+  });
+}
+
+function mapMalToDB(metadata: any) {
+  return {
     mal_id: metadata.id,
     type: metadata.media_type,
     title: metadata.title,
@@ -200,11 +232,5 @@ async function insertMalSeries(metadata: any, type: "anime" | "manga"): Promise<
     statistics: metadata.statistics,
     authors: metadata.authors,
     serialization: metadata.serialization
-  }).select('id').single();
-
-  if (error) {
-    log.error("failed to insert series into supabase", { malId: metadata.id, error: error.message });
-    throw APIError.internal("failed to insert series").withDetails({ supabaseError: error });
   }
-  return data;
 } 
