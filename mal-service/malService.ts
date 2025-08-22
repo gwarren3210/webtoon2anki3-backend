@@ -28,7 +28,6 @@ interface AddSeriesResponse {
 
 interface SearchMalParams {
   title: string;
-  type: "anime" | "manga";
 }
 
 interface SearchMalResponse {
@@ -51,7 +50,7 @@ export const addSeries = api<AddSeriesParams, AddSeriesResponse>(
   async (params): Promise<AddSeriesResponse> => {
     const { title, type } = params;
     log.info("MAL addSeries called", { title, type });
-    const searchResults = await searchMalByTitle(title, type);
+    const searchResults = await searchMalByTitle(title);
     if (searchResults.length === 0) {
       log.info("No MAL results found", { title, type });
       return {
@@ -97,15 +96,15 @@ export const addSeries = api<AddSeriesParams, AddSeriesResponse>(
 export const searchMal = api<SearchMalParams, SearchMalResponse>(
   { expose: true, method: "GET", path: "/search" },
   async (params): Promise<SearchMalResponse> => {
-    const { title, type } = params;
-    log.info("MAL search called", { title, type });
+    const { title } = params;
+    log.info("MAL search called", { title });
     
-    const results = await searchMalByTitle(title, type);
+    const results = await searchMalByTitle(title);
     const upsertResults = await upsertMalSeries(results);
     const insertedCount = upsertResults.filter(r => r.inserted).length;
     const skippedCount = upsertResults.filter(r => !r.inserted).length;
     
-    log.info("MAL search upsert completed", { title, type, inserted: insertedCount, skipped: skippedCount });
+    log.info("MAL search upsert completed", { title, inserted: insertedCount, skipped: skippedCount });
     
     // Map results to include insertion status
     const mappedResults = results.map((node, index) => ({
@@ -125,19 +124,18 @@ export const searchMal = api<SearchMalParams, SearchMalResponse>(
  * Search MAL for a series by title.
  * Returns all matches as an array of MalSearchResult.
  */
-async function searchMalByTitle(title: string, type: "anime" | "manga"): Promise<any[]> {
-  const endpoint = type === "anime" ? "anime" : "manga";
+async function searchMalByTitle(title: string): Promise<any[]> {
   const clientId = getMalClientId();
   if (!clientId) throw APIError.internal("MAL_CLIENT_ID not set in environment");
   const fields = [
     "id,title,main_picture,alternative_titles,start_date,end_date,synopsis,mean,rank,popularity,num_list_users,num_scoring_users,nsfw,created_at,updated_at,media_type,status,genres,my_list_status,num_episodes,num_volumes,num_chapters,start_season,broadcast,source,average_episode_duration,rating,pictures,background,related_anime,related_manga,recommendations,studios,statistics,authors{first_name,last_name},serialization{name}"
   ];
-  const url = `https://api.myanimelist.net/v2/${endpoint}?q=${encodeURIComponent(title)}&limit=10&fields=${fields}`;
+  const url = `https://api.myanimelist.net/v2/manga?q=${encodeURIComponent(title)}&limit=10&fields=${fields}`;
   const resp = await fetch(url, {
     headers: { "X-MAL-CLIENT-ID": clientId },
   });
   if (!resp.ok) {
-    log.error("MAL search API error", { status: resp.status, title, type });
+    log.error("MAL search API error", { status: resp.status, title });
     throw APIError.unavailable("MAL API unavailable");
   }
   const data = (await resp.json()) as { data?: { node: any }[] };
