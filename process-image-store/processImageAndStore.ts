@@ -17,15 +17,15 @@ import * as crypto from 'crypto';
 import { URL } from 'url';
 import log from 'encore.dev/log';
 
-import { extractVocabularyFromImage } from '../imageVocabularyProcessor';
+import { extractVocabularyFromImage } from '../services/imageVocabularyProcessor';
 import {
   getSeriesIdBySlug,
   createChapter,
   insertNewVocabulary,
   linkVocabularyToChapter,
   getChapterStats
-} from '../../supabase/vocabularyHandler';
-import type { ProcessImageAndStoreResponse } from '../types';
+} from '../supabase/vocabularyHandler';
+import type { ProcessImageAndStoreResponse } from '../services/types';
 
 /**
  * Processes an image, extracts vocabulary via AI, and stores in database.
