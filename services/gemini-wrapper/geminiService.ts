@@ -1,5 +1,6 @@
 import { secret } from "encore.dev/config";
 import axios from "axios";
+import log from "encore.dev/log";
 //import { writeFileSync } from "fs";
 //import { join } from "path";
 
@@ -91,6 +92,18 @@ Dialogue:
 const BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models";
 
 export const processDialogue = async (dialogue: string): Promise<WordResponse> => {
+    // Check API key before making request
+    if (!geminiApiKey) {
+        throw new Error("GEMINI_API_KEY secret is not set - run: encore secret set GEMINI_API_KEY --type dev");
+    }
+
+    // Check for empty dialogue
+    if (!dialogue || dialogue.trim().length === 0) {
+        throw new Error("Empty dialogue provided - nothing to process");
+    }
+
+    log.info(`Processing dialogue with ${dialogue.length} characters`);
+
     try {
         const response = await axios.post(
             `${BASE_URL}/gemini-2.0-flash:generateContent?key=${geminiApiKey}`,
@@ -150,10 +163,31 @@ export const processDialogue = async (dialogue: string): Promise<WordResponse> =
             throw new Error("Failed to parse Gemini API response as JSON");
         }
     } catch (error) {
-        console.error("Error processing dialogue:", error);
+        log.error("Error processing dialogue:", { error: error instanceof Error ? error.message : String(error) });
+        
         if (axios.isAxiosError(error)) {
-            console.error("API Error:", error.response?.data);
+            const apiError = error.response?.data;
+            log.error("Gemini API Error:", { apiError: JSON.stringify(apiError, null, 2) });
+            
+            // Check for common API errors
+            if (error.response?.status === 400) {
+                throw new Error(`Gemini API bad request: ${JSON.stringify(apiError?.error?.message || apiError)}`);
+            }
+            if (error.response?.status === 401 || error.response?.status === 403) {
+                throw new Error("Gemini API authentication failed - check GEMINI_API_KEY");
+            }
+            if (error.response?.status === 429) {
+                throw new Error("Gemini API rate limit exceeded");
+            }
+            
+            throw new Error(`Gemini API error (${error.response?.status}): ${JSON.stringify(apiError?.error?.message || apiError)}`);
         }
-        throw new Error("Failed to process dialogue");
+        
+        // Check if API key is missing
+        if (!geminiApiKey) {
+            throw new Error("GEMINI_API_KEY secret is not set");
+        }
+        
+        throw new Error(`Failed to process dialogue: ${error instanceof Error ? error.message : String(error)}`);
     }
 }; 
