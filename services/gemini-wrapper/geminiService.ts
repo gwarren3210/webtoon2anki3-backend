@@ -1,12 +1,17 @@
 import { secret } from "encore.dev/config";
 import axios from "axios";
 import log from "encore.dev/log";
+import { GoogleGenAI } from "@google/genai";
 //import { writeFileSync } from "fs";
 //import { join } from "path";
 
 // Define the Gemini API key as a secret
 const geminiApiKey = secret("GEMINI_API_KEY")();
-
+// The client gets the API key from the environment variable `GEMINI_API_KEY`.
+const ai = new GoogleGenAI({
+    apiKey: geminiApiKey,
+});
+    
 export interface Word {
     korean: string;
     english: string;
@@ -89,8 +94,6 @@ Dialogue:
     ]
   }'
  */
-const BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models";
-
 export const processDialogue = async (dialogue: string): Promise<WordResponse> => {
     // Check API key before making request
     if (!geminiApiKey) {
@@ -105,31 +108,24 @@ export const processDialogue = async (dialogue: string): Promise<WordResponse> =
     log.info(`Processing dialogue with ${dialogue.length} characters`);
 
     try {
-        const response = await axios.post(
-            `${BASE_URL}/gemini-2.0-flash:generateContent?key=${geminiApiKey}`,
-            {
-                contents: [{
-                    parts: [{
-                        text: `${WORD_EXTRACTION_PROMPT}${dialogue}`
-                    }]
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: [{
+                parts: [{
+                    text: `${WORD_EXTRACTION_PROMPT}${dialogue}`
                 }]
-            },
-            {
-                headers: {
-                    "Content-Type": "application/json",
-                }
-            }
-        );
+            }]
+        });
 
         // Save the raw response for debugging
         //const responseDebugPath = join(__dirname, "../test-data", "gemini-response.txt");
         //writeFileSync(responseDebugPath, JSON.stringify(response.data, null, 2), "utf-8");
 
-        if (!response.data.candidates?.[0]?.content?.parts?.[0]?.text) {
-            throw new Error("Invalid response format from Gemini API");
+        if (!response?.candidates?.[0]?.content?.parts?.[0]?.text) {
+            throw new Error(`Invalid response format from Gemini API: ${JSON.stringify(response, null, 2)}`);
         }
 
-        const text = response.data.candidates[0].content.parts[0].text;
+        const text = response?.candidates?.[0]?.content?.parts?.[0]?.text as string;
         
         // Clean up code block markers if present
         const cleanedText = text
