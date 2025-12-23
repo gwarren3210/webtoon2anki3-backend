@@ -34,11 +34,6 @@ import type { ProcessImageAndStoreResponse } from '../services/types';
  * This is a raw endpoint because it handles multipart form data for image upload.
  * Encore's typed API doesn't support multipart, so api.raw() is required.
  *
- * @example
- * curl -X POST \
- *   "http://localhost:4000/process-image-and-store?series_slug=solo-leveling&chapter_number=1&user_id=abc" \
- *   -F "image=@/path/to/image.jpg"
- *
  * @param series_slug - Series identifier (query param, required)
  * @param chapter_number - Chapter number (query param, required)
  * @param user_id - User ID for future features (query param, required)
