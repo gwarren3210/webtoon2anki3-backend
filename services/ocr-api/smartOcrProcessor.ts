@@ -162,6 +162,12 @@ export class SmartOCRProcessor {
                 isOverlayRequired: true,
             });
 
+            // Defensive check for undefined response
+            if (!ocrResult) {
+                log.error('OCR API returned undefined - check API key and network');
+                throw new Error('OCR API returned no response - check API key and network');
+            }
+
             log.debug('Received OCR result', {
                 exitCode: ocrResult.OCRExitCode,
                 hasError: !!ocrResult.ErrorMessage
@@ -233,6 +239,12 @@ export class SmartOCRProcessor {
                         isTable: false,
                         isOverlayRequired: true,
                     });
+
+                    // Defensive check for undefined response
+                    if (!ocrResult) {
+                        log.error('OCR API returned undefined', { startY });
+                        throw new Error('OCR API returned no response - check API key and network');
+                    }
 
                     if (ocrResult.OCRExitCode === 1) {
                         // Define the absolute bounding box of the current tile
