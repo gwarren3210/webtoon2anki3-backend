@@ -23,7 +23,6 @@ import { createAnkiPackage } from './anki/ankiPackageHandler';
 /**
  * Processes a webtoon image through the pipeline to create an Anki package.
  * @param tempImagePath The image data as a path to the file.
- * @param ocrApiKey The API key for the OCR service.
  * @param sourceLang The source language code for translation (e.g., 'ko').
  * @param targetLang The target language code for translation (e.g., 'en').
  * @returns A Promise that resolves with the Anki package data as an ArrayBuffer.
@@ -61,7 +60,7 @@ export async function processWebtoonImage(
 
     // 5. Create Anki cards and generate .apkg file
     console.log('Creating Anki package...');
-    const ankiPackageBuffer: ArrayBuffer = await createAnkiPackage(translatedWordInfos, {
+    const ankiPackageBuffer: ArrayBuffer = await createAnkiPackage(translatedWordInfos, 'Test Deck', {
       front_fields: ['originalWord'],
       back_fields: ['translatedWord', 'translatedLine'],
       create_duplicate: false
@@ -85,7 +84,6 @@ export async function processWebtoonImage(
 // TODO implement buffer handling
 export async function handleProcessWebtoonImage(
   imageBuffer: Buffer,
-  ocrApiKey: string,
   sourceLang: string = 'ko', // Default to Korean
   targetLang: string = 'en' // Default to English
 )  {

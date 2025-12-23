@@ -44,3 +44,13 @@ export interface GetDialogueRequest {
 export interface GetDialogueResponse {
   dialogueLines: string[];
 }
+
+/**
+ * Response from the process-image-and-store endpoint.
+ */
+export interface ProcessImageAndStoreResponse {
+  newWordsInserted: number;
+  totalWordsInChapter: number;
+  seriesSlug: string;
+  chapterNumber: number;
+}

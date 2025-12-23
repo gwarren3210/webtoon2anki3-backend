@@ -48,15 +48,9 @@ export const processImageEndpoint = api.raw(
           // *****************************************************
           // CALL THE processWebtoonImage FUNCTION
           // *****************************************************
-          const ocrApiKey = process.env.OCR_API_KEY as string; // Get API key from environment variables
-          if (!ocrApiKey) {
-               console.warn("OCR_API_KEY environment variable not set.");
-          }
-
           console.log(`Calling processWebtoonImage with temporary file: ${tempImagePath}, sourceLang: ${sourceLang}, targetLang: ${targetLang}`);
           const ankiPackageBuffer: ArrayBuffer = await processWebtoonImage(
             tempImagePath,
-            ocrApiKey,
             sourceLang,
             targetLang
           );
